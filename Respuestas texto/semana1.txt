@@ -8,7 +8,7 @@
 3.
  a) Como en la memoria
  b) Como en la memoria
- c) Lo guardamos primero en una variable y lo velvemos a guardar después 3_c.c
+ c) Lo guardamos primero en una variable y reasignamos el valor de errno después de imprimir 3_c.c
 4.
  a) Como en la memoria
  b) Como en la memoria
