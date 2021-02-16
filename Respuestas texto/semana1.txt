@@ -1,0 +1,18 @@
+1.
+ a) Como en la memoria
+ b) Como en la memoria
+2.
+ a) Como en la memoria
+ b) wc -l
+ c) Grabado
+3.
+ a) Como en la memoria
+ b) Como en la memoria
+ c) Lo guardamos primero en una variable y lo velvemos a guardar después 3_c.c
+4.
+ a) Como en la memoria
+ b) Como en la memoria
+5.
+ a) Como en la memoria
+ b) Como en la memoria
+ c) pthread_detatch 5_c.c
