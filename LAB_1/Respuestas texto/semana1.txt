@@ -4,7 +4,7 @@
 2.
  a) Como en la memoria
  b) wc -l
- c) Grabado
+ c) cat fichero1 fichero2 2> /dev/null | sort | uniq | wc -l > fichero
 3.
  a) Como en la memoria
  b) Como en la memoria
