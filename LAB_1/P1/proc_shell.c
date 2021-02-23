@@ -25,6 +25,12 @@ typedef struct {
     char *palabras[TAM_MAX];
 } input;
 
+/**
+ * @brief Función para procesar lineas. Es ejecutada por un hilo hijo
+ * 
+ * @param arg Estructura que contiene el mensaje y el array de char* donde guardar cada palabra
+ * @return void* NULL
+ */
 void *procesado_linea(void *arg) {
 
 	input *mensaje = arg;

@@ -1,0 +1,21 @@
+6
+a) No, no se puede saber. El sistema operativo es quién decide quién debe ejecutarse primero, esto lo hace dependiendo de los recursos que tenga disponibles.
+b) else if (pid == 0) {
+    printf(" Hijo PID %jd, PPID %jd\n", (intmax_t)getpid(), (intmax_t)getppid());
+   }
+c) El primero porque el padre es quién ejecuta el fork
+else if (pid == 0) {
+    pid = fork () ;
+}
+d) El padre no hace los suficientes waits.
+e) while(wait(NULL) != -1) 
+Con esta línea lo que hacemos es que el padre haga wait hasta que deje de tener hijos. La función wait devuelve -1 cuando el ejecutor de la función no tiene hijos. 
+
+7
+a) Padre: 
+Depende, si lo que se quiere es que el padre imprima no lo es, ya que la memoria se modifica en el hijo.
+b) En ambos ya que ambos tienen memoria la variable con memoria dinámica.
+
+8
+a) 
+b) execl("/usr/bin/ls", "ls", "./", (char *)NULL)
