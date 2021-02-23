@@ -17,5 +17,5 @@ Depende, si lo que se quiere es que el padre imprima no lo es, ya que la memoria
 b) En ambos ya que ambos tienen memoria la variable con memoria dinámica.
 
 8
-a) 
+a) No sucede nada extraño, execvp ejecuta "ls ./" ya que ignora el mi-ls
 b) execl("/usr/bin/ls", "ls", "./", (char *)NULL)
