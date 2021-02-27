@@ -19,3 +19,8 @@ b) En ambos ya que ambos tienen memoria la variable con memoria dinámica.
 8
 a) No sucede nada extraño, execvp ejecuta "ls ./" ya que ignora el mi-ls
 b) execl("/usr/bin/ls", "ls", "./", (char *)NULL)
+
+13
+c) Hemos usado la función execvp ya que no hace falta que pongamos la dirección entera del comando. Por ejemplo al usar ls, si usasemos execv tendriamos que poner /bin/ls, esto responde a la siguiente pregunta, sí, sí se puede usar otra, también tenemos otras posibilidades que actúan como execve.
+sh -c inexistente tiene como salida: sh: 1: inexistente: not found
+Terminated by signal 6

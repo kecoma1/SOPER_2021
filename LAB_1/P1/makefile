@@ -6,3 +6,9 @@ proc_shell:
 
 clean:
 	rm -f *.o proc_shell
+
+exe:
+	./proc_shell
+
+val:
+	valgrind --leak-check=full ./proc_shell

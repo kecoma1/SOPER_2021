@@ -14,14 +14,16 @@
 #include <string.h>
 #include <errno.h>
 #include <pthread.h>
-
+#include <sys/wait.h>
+#include <sys/types.h>
+#include <unistd.h>
 #define TAM_MAX 100 /* Tamaño máximo de la cadena */
 
 /*
     Estructura para pasarla al thread
 */
 typedef struct {
-    char *linea;
+    char linea[TAM_MAX];
     char *palabras[TAM_MAX];
 } input;
 
@@ -32,37 +34,36 @@ typedef struct {
  * @return void* NULL
  */
 void *procesado_linea(void *arg) {
-
-	input *mensaje = arg;
-    char* line = NULL;
+    input *mensaje = arg;
+    char* line = NULL, *str = NULL;
     int i = 1;
     
     /* Separamos las palabras */
     mensaje->palabras[0] = strtok(mensaje->linea, " ");
 
     /* Separando las palabras */
-    while ((mensaje->palabras[i] = strtok(NULL, " ")) != NULL && i < TAM_MAX) i++;
-	for (int n = 0; n < i; n++) printf("%s ", mensaje->palabras[n]);
-    printf("\n");
+    while ((mensaje->palabras[i] = (char *)strtok(NULL, " ")) != NULL && i < TAM_MAX) {
+        
+        i++;
+    } 
+    int n = i;
+	mensaje->palabras[0][strlen(mensaje->palabras[0])] = '\0';
+    /* Quitando \n */
+    for(int i = 0; i < strlen(mensaje->palabras[n-1]); i++) if(mensaje->palabras[n-1][i] == '\n') mensaje->palabras[n-1][i] = '\0';
     return NULL;
 }
 
 int main() {
     pthread_t h1;
     input mensaje;
-    size_t tam_max = TAM_MAX;
-
-    /* Inicializando variable */
-    mensaje.linea = NULL;
+    int status = 0, pid = 0, flag = 0;
 
     /* Bucle principal */
     while(1) {
         printf(">>> ");
         /* Coge la cadena */
-        if (getline(&(mensaje.linea), &tam_max, stdin) == -1) {
+        if (fgets(mensaje.linea, TAM_MAX, stdin) == NULL) {
             /* Liberamos memoria y salimos */
-            if (&(mensaje.linea) != NULL) free(mensaje.linea);
-            mensaje.linea = NULL;
             printf("EOF detectado. ¡Adiós!\n");
             return -1;
         }
@@ -77,5 +78,27 @@ int main() {
             perror("pthread_join");
             exit(EXIT_FAILURE);
         }   
+
+        /* Hacemos un fork para obtener proceso padre e hijo */
+        pid = fork();
+        if (pid < 0) {
+            perror("fork");
+            exit(EXIT_FAILURE);
+        }
+        else if (pid == 0) {
+            if (execvp(mensaje.palabras[0], mensaje.palabras)) {
+                perror("execvp");
+                exit(EXIT_FAILURE);
+            }
+        }   
+        else {
+            wait(&flag);
+            if (WIFEXITED(flag)) { 
+                printf("Exited with value %d\n", WEXITSTATUS(flag));
+            } else if (WIFSIGNALED(flag)) {
+                WTERMSIG(flag);
+                printf("Terminated by signal %d\n", WTERMSIG(flag));
+            }
+        }
     }
 }
