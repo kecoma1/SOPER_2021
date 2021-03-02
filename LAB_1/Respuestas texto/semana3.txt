@@ -1,0 +1,36 @@
+9.
+a) ll /proc/$PID (si tenemos permisos) ó cat & readlink /proc/$PID/exe
+b) cat & readlink /proc/$PID/cwd
+c) cat /proc/$PID/cmdline
+d) cat /proc/$PID/environ | tr '\0' '\n'
+e) 1. cd proc/$PID/task
+   2. ls
+
+10.
+a) Hacerlo con la terminal no con VSCode, para saber el tipo de descriptor usamos ll fd
+Stop 1. Tenemos abierto el 0, 1 y 2. Son de tipo /dev/pts/3
+
+b)
+Stop 2. Se añade el descriptor 3. Es de tipo txt /home/kevin/Documentos/SOPER_2021/LAB_1/P1/file1.txt
+Stop 3. Se añade el descriptor 4. Es de tipo txt /home/kevin/Documentos/SOPER_2021/LAB_1/P1/file2.txt
+
+c)
+Stop 4. No se ha hecho close, por lo que no se ha borrado, se sigue pudiendo acceder mediante esa carpeta.
+
+d)
+Stop 5. Ahora si que se ha borrado completamente. Se ha hecho el close
+Stop 6. Se genera un nuevo archivo y se reutiliza el descriptor 3
+Stop 7. Se genera un nuevo archivo y se crea el descriptor 5
+
+11.
+a) Se imprime 2 veces ya que al hacer fork el proceso hijo tiene una copia del buffer.
+b) No, porque el buffer esta vacio a la hora de hacer el fork, por lo tanto el hijo imprime "Nooo" y el padre "Yo soy tu padre".
+El hecho de poner el \n obliga al buffer a vaciarse
+c) Se imprime el \n pero el hijo imprime ambas strings, esto es porque el \n no fuerza el vaciado del buffer cuando se usa una varaible FILE 
+d) Usando fflush antes de crear al hijo
+
+12.
+a)
+He recibido el string: Hola a todos!
+He escrito en el pipe
+b) El padre se queda indefinidamente esperando a una respuesta del hijo ya que la parte de escritura no esta cerrada, la función read "bloquea" al padre hasta que llegue una respuesta.
