@@ -42,6 +42,7 @@ int main(void) {
 	} else {
 		/* Cierre del descriptor de salida en el padre */
 		close(fd[1]);
+		
 		/* Leer algo de la tubería... el saludo! */
 		nbytes = 0;
 		do {
@@ -53,6 +54,7 @@ int main(void) {
 			if(nbytes > 0) {
 				printf("He recibido el string: %.*s", (int) nbytes, readbuffer);
 			}
+			printf("PADRE: %ld\n", nbytes);
 		} while(nbytes != 0);
 
 		wait(NULL);

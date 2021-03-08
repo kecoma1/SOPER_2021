@@ -1,0 +1,6 @@
+src/proc_shell.c - Fichero que contiene el código para resolver el ejercicio 13 de la práctica 1.
+src/makefile - Fichero que compila y crea el ejecutable del ejercicio de codificación.
+    Comandos:
+        make exe - Compila el código y ejecuta el ejecutable de la shell.
+        make val - Compila el código y ejecuta el ejecutable de la shell usando valgrind. 
+memoria.pdf - Memoria que contiene las respuestas de las preguntas de la práctica.

@@ -6,8 +6,9 @@
 
 int main(void) {
 	pid_t pid;
+	FILE *pf = fopen("archivo.txt", "w");
 
-	printf("Yo soy tu padre");
+	fprintf(pf, "Yo soy tu padre\n");
 
 	pid = fork();
 	if (pid <  0) {
@@ -15,10 +16,12 @@ int main(void) {
 		exit(EXIT_FAILURE);
 	}
 	else if (pid == 0) {
-		printf("Noooooo");
+		fprintf(pf,"Noooooo");
+		fclose(pf);
 		exit(EXIT_SUCCESS);
 	}
 
 	wait(NULL);
+	fclose(pf);
 	exit(EXIT_SUCCESS);
 }
