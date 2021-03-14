@@ -1,0 +1,19 @@
+Ejercicio1.
+
+a) Tienes varias formas de acceder, sería el comando kill, seguido de "-l" o "-L"
+
+b) SIGKILL tiene el número 9 y SIGSTOP tiene el número 19.
+
+Ejercicio2.
+
+
+
+Las señales tienen distinto numero asignado respecto linux y unix por tanto usar el nombre. 
+
+
+Tratamiento señales.
+
+El primer argumento es signum. Después acto
+
+Primero defines el manejador, la funcion que se va a invocar cuando ser reciba la señal. 
+Defines struct signation y das valor a sus atributos, la funcion igentisept 
