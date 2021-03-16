@@ -1,0 +1,11 @@
+5. 
+a) El programa no reacciona, no hace nada cuando recibe cualquiera de las señales SIGUSR1 o SIGUSR2.
+Al recibir SIGINT el programa se cierra.
+b) Cuando finaliza la espera el programa imprime "Fin del programa". Esto sucede porque al hacer sleep el proceso esta dormido y las señales se quedan en espera, a parte se quedan en espera porque tenemos la máscara de señales. Al despertar las señales siguen bloqueadas por la mascara, al poner la mascara antigua, las señales llegán al proceso y vemos en pantalla el mensaje "Señal definida por el usuario 1".
+
+6.
+a) La cuenta finaliza y el programa acaba pasando por el manejador.
+b) La ejecución del programa finaliza pero no pasa por el manejador, se imprime por pantalla "Temporizador". Se ejecuta el manejador establecido por el sistema. 
+Al ejecutar sigaction se hace un "link" entre la señal y el manejador, como no se ejecuta esta función el manejador sigue siendo el establecido por el sistema operativo.
+
+

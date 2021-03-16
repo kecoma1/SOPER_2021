@@ -13,14 +13,20 @@ int main(void) {
     sigaddset(&set, SIGUSR2);
 
     /* Bloqueo de las señales SIGUSR1 y SIGUSR2 en el proceso. */
-    if (sigprocmask(SIG_BLOCK, &set, &oset) < 0) {
+    /*if (sigprocmask(SIG_BLOCK, &set, &oset) < 0) {
         perror("sigprocmask");
         exit(EXIT_FAILURE);
-    }
+    }*/
 
     printf("En espera de señales (PID = %d)\n", getpid());
     printf("SIGUSR1 y SIGUSR2 están bloqueadas\n");
-    pause();
+    sleep(10);
+    
+    /* Bloqueo de las señales SIGUSR1 y SIGUSR2 en el proceso. */
+    if (sigprocmask(SIG_BLOCK, &oset, &set) < 0) {
+        perror("sigprocmask");
+        exit(EXIT_FAILURE);
+    }
 
     printf("Fin del programa\n");
     exit(EXIT_SUCCESS);

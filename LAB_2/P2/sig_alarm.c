@@ -20,10 +20,10 @@ int main(void) {
 
     /* Se arma la señal SIGALRM. */
     act.sa_handler = manejador_SIGALRM;
-    if (sigaction(SIGALRM, &act, NULL) < 0) {
+    /*if (sigaction(SIGALRM, &act, NULL) < 0) {
         perror("sigaction");
         exit(EXIT_FAILURE);
-    }
+    }*/
 
     if (alarm(SECS)) {
         fprintf(stderr, "Existe una alarma previa establecida\n");
