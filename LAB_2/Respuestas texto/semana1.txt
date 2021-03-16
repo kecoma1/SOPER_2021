@@ -1,0 +1,20 @@
+1.
+a) kill -l
+b) 	
+	SIGKILL tiene un valor igual a 9
+	SIGSTOP tiene un valor igual a 19
+	
+2.
+b) La terminal no reacciona hasta que se envia SIGCONT, al enviar SIGCONT aparecen los caracteres escritos.
+
+3.
+a) No lo supone ya que el programa puede recibir la señal o no.
+b) No, no se bloquea ninguna señal.
+c) Cuando el proceso recibe la señal SIGINT.
+d) EL programa se cierra. Por defecto el proceso detiene su ejecución y bifurca a la rutina de tratamiento de la señal (SIG_DFL), este tratamiento consiste en terminar el proceso y en algunos casos, generar un fichero core.
+e) No se pueden capturar todas, SIGKILL y SIGSTOP son especiales ya que son las encargadas de detener y matar procesos. El sistema operativo puede necesitar matar un proceso. Es una cuestión de seguridad.
+
+4.
+a) Aunque exista un manejador el print de que se ha recibido la señal se ejecuta en las líneas 28-31
+b) Porque si no, el proceso desde el manejador no sería capaz de decir que ha recibido la señal, la unica forma que tiene de hacerlo es modificando esa variable para que cuando salga pueda hacer el print
+
