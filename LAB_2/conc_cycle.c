@@ -47,12 +47,24 @@ short sigint_received = 0;
 
 
 /**
+ * @brief Manejador de la señal SIGALARM
+ * Cuando se recibe la señal alarm, el comportamiento 
+ * es el mismo al de la señal sigint, por lo que modificamos
+ * el valor de singint
+ * @param sig Señal
+ */
+void manejador_SIGALRM(int sig) {
+    printf("Alarm recibido.\n");
+    sigint_received = 1;
+}
+
+
+/**
  * @brief Función destinada a manejar la señal SIGUSR1.
  * 
  * @param sig Señal recibida
  */
 void manejador_SIGUSR(int sig) {
-    printf("hola_ sigusr1\n");
     sigusr1_received = 1;
 }
 
@@ -64,7 +76,6 @@ void manejador_SIGUSR(int sig) {
  * @param sig Señal recibida
  */
 void manejador_SIGINT(int sig) {
-    printf("hola_ sigint\n");
     sigint_received = 1;
 }
 
@@ -75,7 +86,6 @@ void manejador_SIGINT(int sig) {
  * @param sig Señal recibida 
  */
 void manejador_SIGTERM(int sig) {
-    printf("hola_ sigterm\n");
     sigterm_received = 1;
 }
 
@@ -90,7 +100,7 @@ void manejador_SIGTERM(int sig) {
  */
 int send_signal(int hijo, int pid_P1, int signal) {
     if (hijo != 0) { // 
-        /* Enviamos a nuestro hijo la señal SIGUSR1 */
+        /* Enviamos a nuestro hijo la señal */
         if (kill(hijo, signal) == -1) {
             perror("kill");
             return -1;
@@ -109,12 +119,13 @@ int send_signal(int hijo, int pid_P1, int signal) {
 int main(int args, char* argv[]) {
     int num_proc = 0, ciclo = 1;
     pid_t pid_hijo = 0, pid_P1 = 0;
-    sigset_t hijo_mask, old_set;
+    sigset_t hijo_mask, padre_mask, old_set;
 
     /* Estructuras para capturar señales */
     struct sigaction act_SIGUSR1;
     struct sigaction act_SIGINT;
     struct sigaction act_SIGTERM;
+    struct sigaction act_SIGALRM;
 
     if (args < 2) {
         printf("Introduzca el número de procesos.\n./conc_cycle <número de procesos>\n");
@@ -124,23 +135,35 @@ int main(int args, char* argv[]) {
         num_proc = atoi(argv[1]);
     }
 
+    /* Iniciamos el temporizador */
+    alarm(10);
+
     /* Creamos los manejadores */
     act_SIGUSR1.sa_handler = manejador_SIGUSR;
     act_SIGINT.sa_handler = manejador_SIGINT;
-    act_SIGTERM.sa_handler = manejador_SIGUSR;
+    act_SIGTERM.sa_handler = manejador_SIGTERM;
+    act_SIGALRM.sa_handler = manejador_SIGALRM;
 
     /* Inicializando las mascaras */
     sigemptyset(&(act_SIGUSR1.sa_mask));
     sigemptyset(&(act_SIGINT.sa_mask));
     sigemptyset(&(act_SIGTERM.sa_mask));
+    sigemptyset(&(act_SIGALRM.sa_mask));
 
     act_SIGUSR1.sa_flags = 0;
     act_SIGINT.sa_flags = 0;
     act_SIGTERM.sa_flags = 0;
+    act_SIGALRM.sa_flags = 0;
 
     /* Mascaras para el bloqueo de señales */
-    sigemptyset(&hijo_mask);
-    sigaddset(&hijo_mask, SIGINT);
+    sigfillset(&hijo_mask);
+    sigdelset(&hijo_mask, SIGUSR1);
+    sigdelset(&hijo_mask, SIGTERM);
+    
+    sigfillset(&padre_mask);
+    sigdelset(&padre_mask, SIGUSR1);
+    sigdelset(&padre_mask, SIGINT);
+    sigdelset(&padre_mask, SIGALRM);
 
     pid_P1 = getpid();
 
@@ -179,6 +202,17 @@ int main(int args, char* argv[]) {
             perror("sigaction");
             exit(EXIT_FAILURE);
         }
+
+        if(sigaction(SIGALRM, &act_SIGALRM, NULL) < 0) {
+            perror("sigaction");
+            exit(EXIT_FAILURE);
+        }
+
+        /* Linkeamos la mascara para bloquear señales */
+        if (sigprocmask(SIG_BLOCK, &padre_mask, &old_set) == -1) {
+            perror("sigprocmask");
+            exit(EXIT_FAILURE);
+        }
     }
 
     /* El padre inicia el ciclo */
@@ -190,20 +224,15 @@ int main(int args, char* argv[]) {
     }
 
     while(1) {
-        /* Espera inactiva de la señal */
-        pause();
+        /* Espera inactiva de la señal, el padre espera sus señales y el hijo otras */
+        if (pid_P1 != getpid()) sigsuspend(&hijo_mask);
+        else sigsuspend(&padre_mask);
+
         sleep(1);
-        if (sigusr1_received == 1) {
-            send_signal(pid_hijo, pid_P1, SIGUSR1);
-            printf("Número de ciclo: %d, PID hijo: %jd, PID: %jd\n", ciclo, (intmax_t)pid_hijo, (intmax_t)getpid());
-            ciclo++;
-            sigusr1_received = 0;
-        }
-        else if (sigint_received == 1){
-            printf("SIGINT recibido, acabando con la ejecución del ciclo. PID: %jd\n", (intmax_t)getpid());
+        if (sigint_received == 1){
             /* Si el padre recibe la señal SIGINT, envía la señal SIGTERM a los hijos*/
             send_signal(pid_hijo, pid_P1, SIGTERM);
-            printf("SIGINT recibido, acabando con la ejecución del ciclo. PID: %jd\n", (intmax_t)getpid());
+            printf("Matando hijos, acabando con la ejecución del ciclo. PID: %jd\n", (intmax_t)getpid());
             waitpid(pid_hijo, NULL, WEXITED);
             exit(EXIT_SUCCESS);
         } else if (sigterm_received == 1) {
@@ -212,9 +241,14 @@ int main(int args, char* argv[]) {
             if (pid_hijo != 0) send_signal(pid_hijo, pid_P1, SIGTERM);
             printf("Acabando con la ejecución de PID: %jd\n", (intmax_t)getpid());
 
-            /* Cada hijo espera a su hijo excepto el último hijo */
+            /* Cada padre espera a su hijo excepto el último hijo */
             if (pid_hijo != 0) waitpid(pid_hijo, NULL, WEXITED);
             exit(EXIT_SUCCESS);
+        } else if (sigusr1_received == 1) {
+            send_signal(pid_hijo, pid_P1, SIGUSR1);
+            printf("Número de ciclo: %d, PID hijo: %jd, PID: %jd\n", ciclo, (intmax_t)pid_hijo, (intmax_t)getpid());
+            ciclo++;
+            sigusr1_received = 0;
         }
     }
 }
