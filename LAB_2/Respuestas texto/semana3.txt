@@ -1,0 +1,18 @@
+7. 
+Se puede hacer justo después de hacer open, ya que el proceso ejecutor lo mantendra abierto. Una vez todos los procesos hagan close, el semáforo se cerrara.
+
+8.
+a) La llamada a sem_wait no se ejecuta con exito, se ignora el semaforo. sem_wait devuelve error, EINTR.
+b) No sucede nada, el proceso se queda esperando a que el valor del semaforo decremente.
+c) Para garantizar que no haya error en sem_wait podemos hacer un loop que haga continuamente sem_wait. Si sem_wait devuelve error, debemos comprobar si el error es EINTR, si lo es, seguimos en el loop.
+
+9.
+A: Vacío.
+B: sem_post(sem1);
+B: sem_wait(sem2);
+C: sem_post(sem1);
+D: sem_wait(sem1);
+E: sem_post(sem2);
+E: sem_wait(sem1);
+F: Vacío
+

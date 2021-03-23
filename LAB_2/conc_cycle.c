@@ -3,20 +3,24 @@
  * @author Kevin de la Coba Malam
  *         Marcos Aarón Bernuy
  * @brief Archivo donde se define el comportamiento de un programa que:
- *      1. Crea un proceso y este crea otro... así hasta un número determinado.
- *      2. Estos procesos se sincronizan por señales, el padre envía una señal SIGUSR1
+ *      1. Crea un proceso y este crea otro, ese otro crea otro... así hasta un número determinado.
+ *      2. Estos procesos se comunican por señales, el padre envía una señal SIGUSR1
  *      al hijo, el hijo a su hijo... hasta que lleguemos al último proceso, este se
  *      la envía al padre. Los procesos se quedarán en espera no activa hasta que el 
  *      padre envíe de nuevo la señal.
  *      3. Cuando el padre reciba SIGINT, este enviara SIGTERM a los hijos y estos
  *      a sus hijos.
+ *      4. Los hijos ignoran todas las señales exceptuando SIGTERM y SIGUSR1, el padre
+ *      ignora todas las señales excepto SIGINT y SIGUSR1. Para ignorar dichas señales
+ *      se crean máscaras.
+ *      5. En cuanto a la sincronización se usan semáforos de forma que en cuanto un
+ *      hijo termine de escribir, el siguiente escribe.
  * @version 1.0
  * @date 2021-03-16
  * 
  * @copyright Copyright (c) 2021
  * 
  */
-
 
 /* Salida y entrada estandar */
 #include <stdio.h> 
@@ -144,7 +148,7 @@ int main(int args, char* argv[]) {
     act_SIGTERM.sa_handler = manejador_SIGTERM;
     act_SIGALRM.sa_handler = manejador_SIGALRM;
 
-    /* Inicializando las mascaras */
+    /* Inicializando las estructuras sigaction */
     sigemptyset(&(act_SIGUSR1.sa_mask));
     sigemptyset(&(act_SIGINT.sa_mask));
     sigemptyset(&(act_SIGTERM.sa_mask));
@@ -170,7 +174,10 @@ int main(int args, char* argv[]) {
     /* Bucle para crear procesos */
     for(int i = 0; i < num_proc-1; i++){
         pid_hijo = fork();
-        if(pid_hijo != 0) break;
+        if (pid_hijo < 0) {
+            perror("fork");
+            exit(EXIT_FAILURE);
+        } else if(pid_hijo != 0) break;
     }
 
     /* Linkeamos la estructura sigaction a los procesos hijos */
@@ -218,7 +225,9 @@ int main(int args, char* argv[]) {
     /* El padre inicia el ciclo */
     if (pid_P1 == getpid()) {
         sleep(1);
-        send_signal(pid_hijo, pid_P1, SIGUSR1);
+        if (send_signal(pid_hijo, pid_P1, SIGUSR1) == -1) {
+            exit(EXIT_FAILURE);
+        }
         printf("Número de ciclo: %d, PID hijo: %jd, PID: %jd\n", ciclo, (intmax_t)pid_hijo, (intmax_t)getpid());
         ciclo++;
     }
@@ -231,21 +240,29 @@ int main(int args, char* argv[]) {
         sleep(1);
         if (sigint_received == 1){
             /* Si el padre recibe la señal SIGINT, envía la señal SIGTERM a los hijos*/
-            send_signal(pid_hijo, pid_P1, SIGTERM);
+            if (send_signal(pid_hijo, pid_P1, SIGTERM)  == -1) {
+                exit(EXIT_FAILURE);
+            }
             printf("Matando hijos, acabando con la ejecución del ciclo. PID: %jd\n", (intmax_t)getpid());
             waitpid(pid_hijo, NULL, WEXITED);
             exit(EXIT_SUCCESS);
         } else if (sigterm_received == 1) {
             /* Enviamos la señal SIGTERM a nuestro hijo,
             si no tiene hijo, no envía */
-            if (pid_hijo != 0) send_signal(pid_hijo, pid_P1, SIGTERM);
+            if (pid_hijo != 0) {
+                if (send_signal(pid_hijo, pid_P1, SIGTERM)  == -1) {
+                    exit(EXIT_FAILURE);
+                }
+            }
             printf("Acabando con la ejecución de PID: %jd\n", (intmax_t)getpid());
 
             /* Cada padre espera a su hijo excepto el último hijo */
             if (pid_hijo != 0) waitpid(pid_hijo, NULL, WEXITED);
             exit(EXIT_SUCCESS);
         } else if (sigusr1_received == 1) {
-            send_signal(pid_hijo, pid_P1, SIGUSR1);
+            if (send_signal(pid_hijo, pid_P1, SIGUSR1) == -1) {
+                exit(EXIT_FAILURE);
+            }
             printf("Número de ciclo: %d, PID hijo: %jd, PID: %jd\n", ciclo, (intmax_t)pid_hijo, (intmax_t)getpid());
             ciclo++;
             sigusr1_received = 0;

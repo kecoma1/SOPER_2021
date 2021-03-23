@@ -32,8 +32,11 @@ int main(void) {
 	if (pid == 0) {
         /* Rellenar Código A */
 		printf("1\n");
+		sem_post(sem1);
         /* Rellenar Código B */
+		sem_wait(sem2);
 		printf("3\n");
+		sem_post(sem1);
         /* Rellenar Código C */
 
 		sem_close(sem1);
@@ -41,8 +44,11 @@ int main(void) {
 	}
 	else {
         /* Rellenar Código D */
+		sem_wait(sem1);
 		printf("2\n");
         /* Rellenar Código E */
+		sem_post(sem2);
+		sem_wait(sem1);
 		printf("4\n");
         /* Rellenar Código F */
 

@@ -23,6 +23,7 @@ int main(void) {
 	}
 
     sigemptyset(&(act.sa_mask));
+    sigaddset(&(act.sa_mask), SIGINT);
     act.sa_flags = 0;
 
     /* Se arma la señal SIGINT. */
