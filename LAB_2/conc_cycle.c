@@ -44,6 +44,13 @@
 /* Espera a los hijos */
 #include <sys/wait.h>
 
+/* Uso de semáforos */
+#include <semaphore.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#define SEM_NAME_1 "/sem_conc_cycle_1"
+#define SEM_NAME_2 "/sem_conc_cycle_2"
+
 /* Flag para determinar si se han recibido diferentes señales */
 short sigusr1_received = 0;
 short sigterm_received = 0;
@@ -125,6 +132,9 @@ int main(int args, char* argv[]) {
     pid_t pid_hijo = 0, pid_P1 = 0;
     sigset_t hijo_mask, padre_mask, old_set;
 
+    /* Semáforos para la ejecución */
+    sem_t *sem1 = NULL, *sem2 = NULL;
+
     /* Estructuras para capturar señales */
     struct sigaction act_SIGUSR1;
     struct sigaction act_SIGINT;
@@ -133,14 +143,34 @@ int main(int args, char* argv[]) {
 
     if (args < 2) {
         printf("Introduzca el número de procesos.\n./conc_cycle <número de procesos>\n");
-        return -1;
+        exit(EXIT_FAILURE);
+    } else if (atoi(argv[1]) <= 1) {
+        printf("Introduzca un número mayor que 1.\n");
+        exit(EXIT_FAILURE);
     } else {
         /* Definimos el número de procesos */
         num_proc = atoi(argv[1]);
     }
 
     /* Iniciamos el temporizador */
-    alarm(10);
+    //alarm(10);
+    
+    /* Inicializamos los semáforos */
+    if ((sem1 = sem_open(SEM_NAME_1, O_CREAT | O_EXCL, S_IRUSR | S_IWUSR, 0)) == SEM_FAILED) {
+		if (errno == EACCES || errno == EEXIST) {
+            sem_unlink(SEM_NAME_1);
+        }
+        perror("sem_open");
+		exit(EXIT_FAILURE);
+	}
+    if ((sem2 = sem_open(SEM_NAME_2, O_CREAT | O_EXCL, S_IRUSR | S_IWUSR, 0)) == SEM_FAILED) {
+		if (errno == EACCES || errno == EEXIST) {
+            sem_unlink(SEM_NAME_1);
+            sem_unlink(SEM_NAME_2);
+        }
+        perror("sem_open");
+		exit(EXIT_FAILURE);
+	}
 
     /* Creamos los manejadores */
     act_SIGUSR1.sa_handler = manejador_SIGUSR;
@@ -224,12 +254,28 @@ int main(int args, char* argv[]) {
 
     /* El padre inicia el ciclo */
     if (pid_P1 == getpid()) {
-        sleep(1);
+        while(sem_wait(sem1) == -1) {
+            if (errno != EINTR) {
+                perror("sem_wait");
+                sem_close(sem1);
+                sem_close(sem2);
+                sem_unlink(SEM_NAME_1);
+                sem_unlink(SEM_NAME_2);
+                exit(EXIT_FAILURE);
+            }
+        }
         if (send_signal(pid_hijo, pid_P1, SIGUSR1) == -1) {
             exit(EXIT_FAILURE);
         }
+
         printf("Número de ciclo: %d, PID hijo: %jd, PID: %jd\n", ciclo, (intmax_t)pid_hijo, (intmax_t)getpid());
         ciclo++;
+        sem_post(sem2);
+        sem_post(sem1);
+    } else if (pid_hijo == 0) {
+        /* Cuando el último hijo se haya creado,
+        dejamos al padre iniciar el ciclo */
+        sem_post(sem1);
     }
 
     while(1) {
@@ -237,16 +283,40 @@ int main(int args, char* argv[]) {
         if (pid_P1 != getpid()) sigsuspend(&hijo_mask);
         else sigsuspend(&padre_mask);
 
-        sleep(1);
-        if (sigint_received == 1){
+        /* SIGINT */
+        if (sigint_received == 1) {
             /* Si el padre recibe la señal SIGINT, envía la señal SIGTERM a los hijos*/
             if (send_signal(pid_hijo, pid_P1, SIGTERM)  == -1) {
                 exit(EXIT_FAILURE);
             }
-            printf("Matando hijos, acabando con la ejecución del ciclo. PID: %jd\n", (intmax_t)getpid());
+
+            /* ¿Puedo hacer print? Cuando el semaforo le deje lo hará */
+            while(sem_wait(sem2) == -1) {
+                if (errno != EINTR) {
+                    perror("sem_wait");
+                    sem_close(sem1);
+                    sem_close(sem2);
+                    if (pid_P1 == getpid()) {
+                        sem_unlink(SEM_NAME_1);
+                        sem_unlink(SEM_NAME_2);
+                    }
+                    exit(EXIT_FAILURE);
+                }
+            }
+            printf("\nMatando hijos, acabando con la ejecución del ciclo. PID: %jd\n", (intmax_t)getpid());
+            sem_post(sem2);
+
             waitpid(pid_hijo, NULL, WEXITED);
+
+            /* El padre hace unlink de los semáforos */
+            sem_close(sem1);
+            sem_close(sem2);
+            sem_unlink(SEM_NAME_1);
+            sem_unlink(SEM_NAME_2);
             exit(EXIT_SUCCESS);
-        } else if (sigterm_received == 1) {
+            
+        } /* SIGTERM */
+        else if (sigterm_received == 1) {
             /* Enviamos la señal SIGTERM a nuestro hijo,
             si no tiene hijo, no envía */
             if (pid_hijo != 0) {
@@ -254,18 +324,63 @@ int main(int args, char* argv[]) {
                     exit(EXIT_FAILURE);
                 }
             }
-            printf("Acabando con la ejecución de PID: %jd\n", (intmax_t)getpid());
 
+            while(sem_wait(sem2) == -1) {
+                if (errno != EINTR) {
+                    perror("sem_wait");
+                    sem_close(sem1);
+                    sem_close(sem2);
+                    if (pid_P1 == getpid()) {
+                        sem_unlink(SEM_NAME_1);
+                        sem_unlink(SEM_NAME_2);
+                    }
+                    exit(EXIT_FAILURE);
+                }
+            }
+            printf("Acabando con la ejecución de PID: %jd\n", (intmax_t)getpid());
+            sem_post(sem2);
             /* Cada padre espera a su hijo excepto el último hijo */
             if (pid_hijo != 0) waitpid(pid_hijo, NULL, WEXITED);
+            sem_close(sem1);
+            sem_close(sem2);
             exit(EXIT_SUCCESS);
-        } else if (sigusr1_received == 1) {
+
+        } /* SIGUSR1 */
+        else if (sigusr1_received == 1) {
+            /* ¿Puedo enviar la señal? Si el semáforo le deja lo hará */
+            while(sem_wait(sem1) == -1) {
+                if (errno != EINTR) {
+                    perror("sem_wait");
+                    sem_close(sem1);
+                    sem_close(sem2);
+                    if (pid_P1 == getpid()) {
+                        sem_unlink(SEM_NAME_1);
+                        sem_unlink(SEM_NAME_2);
+                    }
+                    exit(EXIT_FAILURE);
+                }
+            }
             if (send_signal(pid_hijo, pid_P1, SIGUSR1) == -1) {
                 exit(EXIT_FAILURE);
             }
-            printf("Número de ciclo: %d, PID hijo: %jd, PID: %jd\n", ciclo, (intmax_t)pid_hijo, (intmax_t)getpid());
+
+            while(sem_wait(sem2) == -1) {
+                if (errno != EINTR) {
+                    perror("sem_wait");
+                    sem_close(sem1);
+                    sem_close(sem2);
+                    if (pid_P1 == getpid()) {
+                        sem_unlink(SEM_NAME_1);
+                        sem_unlink(SEM_NAME_2);
+                    }
+                    exit(EXIT_FAILURE);
+                }
+            }
+            printf("Número de ciclo: %d, PID: %jd\n", ciclo, (intmax_t)getpid());
+            sem_post(sem2);
             ciclo++;
             sigusr1_received = 0;
+            sem_post(sem1);
         }
     }
 }
