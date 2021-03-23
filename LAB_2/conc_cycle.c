@@ -65,7 +65,7 @@ short sigint_received = 0;
  * @param sig Señal
  */
 void manejador_SIGALRM(int sig) {
-    printf("Alarm recibido.\n");
+    printf("\nSIGALARM recibido.\n");
     sigint_received = 1;
 }
 
@@ -153,10 +153,10 @@ int main(int args, char* argv[]) {
     }
 
     /* Iniciamos el temporizador */
-    //alarm(10);
+    alarm(10);
     
     /* Inicializamos los semáforos */
-    if ((sem1 = sem_open(SEM_NAME_1, O_CREAT | O_EXCL, S_IRUSR | S_IWUSR, 0)) == SEM_FAILED) {
+    if ((sem1 = sem_open(SEM_NAME_1, O_CREAT | O_EXCL, S_IRUSR | S_IWUSR, num_proc-1)) == SEM_FAILED) {
 		if (errno == EACCES || errno == EEXIST) {
             sem_unlink(SEM_NAME_1);
         }
@@ -254,7 +254,7 @@ int main(int args, char* argv[]) {
 
     /* El padre inicia el ciclo */
     if (pid_P1 == getpid()) {
-        while(sem_wait(sem1) == -1) {
+        while(sem_wait(sem2) == -1) {
             if (errno != EINTR) {
                 perror("sem_wait");
                 sem_close(sem1);
@@ -268,17 +268,31 @@ int main(int args, char* argv[]) {
             exit(EXIT_FAILURE);
         }
 
-        printf("Número de ciclo: %d, PID hijo: %jd, PID: %jd\n", ciclo, (intmax_t)pid_hijo, (intmax_t)getpid());
+        printf("Número de ciclo: %d, PID: %jd\n", ciclo, (intmax_t)getpid());
         ciclo++;
         sem_post(sem2);
         sem_post(sem1);
     } else if (pid_hijo == 0) {
         /* Cuando el último hijo se haya creado,
         dejamos al padre iniciar el ciclo */
-        sem_post(sem1);
+        sem_post(sem2);
     }
 
     while(1) {
+
+        while(sem_wait(sem1) == -1) {
+            if (errno != EINTR) {
+                perror("sem_wait");
+                sem_close(sem1);
+                sem_close(sem2);
+                if (pid_P1 == getpid()) {
+                    sem_unlink(SEM_NAME_1);
+                    sem_unlink(SEM_NAME_2);
+                }
+                exit(EXIT_FAILURE);
+            }
+        }
+        
         /* Espera inactiva de la señal, el padre espera sus señales y el hijo otras */
         if (pid_P1 != getpid()) sigsuspend(&hijo_mask);
         else sigsuspend(&padre_mask);
@@ -348,22 +362,6 @@ int main(int args, char* argv[]) {
         } /* SIGUSR1 */
         else if (sigusr1_received == 1) {
             /* ¿Puedo enviar la señal? Si el semáforo le deja lo hará */
-            while(sem_wait(sem1) == -1) {
-                if (errno != EINTR) {
-                    perror("sem_wait");
-                    sem_close(sem1);
-                    sem_close(sem2);
-                    if (pid_P1 == getpid()) {
-                        sem_unlink(SEM_NAME_1);
-                        sem_unlink(SEM_NAME_2);
-                    }
-                    exit(EXIT_FAILURE);
-                }
-            }
-            if (send_signal(pid_hijo, pid_P1, SIGUSR1) == -1) {
-                exit(EXIT_FAILURE);
-            }
-
             while(sem_wait(sem2) == -1) {
                 if (errno != EINTR) {
                     perror("sem_wait");
@@ -376,10 +374,15 @@ int main(int args, char* argv[]) {
                     exit(EXIT_FAILURE);
                 }
             }
+
+            if (send_signal(pid_hijo, pid_P1, SIGUSR1) == -1) {
+                exit(EXIT_FAILURE);
+            }
+
             printf("Número de ciclo: %d, PID: %jd\n", ciclo, (intmax_t)getpid());
-            sem_post(sem2);
             ciclo++;
             sigusr1_received = 0;
+            sem_post(sem2);
             sem_post(sem1);
         }
     }
