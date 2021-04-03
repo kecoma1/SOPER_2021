@@ -130,7 +130,7 @@ int send_signal(int hijo, int pid_P1, int signal) {
 int main(int args, char* argv[]) {
     int num_proc = 0, ciclo = 1;
     pid_t pid_hijo = 0, pid_P1 = 0;
-    sigset_t hijo_mask, padre_mask, old_set;
+    sigset_t hijo_mask, padre_mask, old_set, all_sigs;
 
     /* Semáforos para la ejecución */
     sem_t *sem1 = NULL, *sem2 = NULL;
@@ -171,6 +171,8 @@ int main(int args, char* argv[]) {
         perror("sem_open");
 		exit(EXIT_FAILURE);
 	}
+    sem_unlink(SEM_NAME_1);
+    sem_unlink(SEM_NAME_2);
 
     /* Creamos los manejadores */
     act_SIGUSR1.sa_handler = manejador_SIGUSR;
@@ -199,6 +201,8 @@ int main(int args, char* argv[]) {
     sigdelset(&padre_mask, SIGINT);
     sigdelset(&padre_mask, SIGALRM);
 
+    sigfillset(&all_sigs);
+
     pid_P1 = getpid();
 
     /* Bucle para crear procesos */
@@ -210,6 +214,12 @@ int main(int args, char* argv[]) {
         } else if(pid_hijo != 0) break;
     }
 
+    /* Todos los procesos bloquean todas las señales */
+    if (sigprocmask(SIG_BLOCK, &all_sigs, &old_set) == -1) {
+        perror("sigprocmask");
+        exit(EXIT_FAILURE);
+    }
+
     /* Linkeamos la estructura sigaction a los procesos hijos */
     if(pid_P1 != getpid()){
         if(sigaction(SIGUSR1, &act_SIGUSR1, NULL) < 0) {
@@ -219,12 +229,6 @@ int main(int args, char* argv[]) {
 
         if(sigaction(SIGTERM, &act_SIGTERM, NULL) < 0) {
             perror("sigaction");
-            exit(EXIT_FAILURE);
-        }
-
-        /* Linkeamos la mascara para bloquear señales */
-        if (sigprocmask(SIG_BLOCK, &hijo_mask, &old_set) == -1) {
-            perror("sigprocmask");
             exit(EXIT_FAILURE);
         }
     }
@@ -242,12 +246,6 @@ int main(int args, char* argv[]) {
 
         if(sigaction(SIGALRM, &act_SIGALRM, NULL) < 0) {
             perror("sigaction");
-            exit(EXIT_FAILURE);
-        }
-
-        /* Linkeamos la mascara para bloquear señales */
-        if (sigprocmask(SIG_BLOCK, &padre_mask, &old_set) == -1) {
-            perror("sigprocmask");
             exit(EXIT_FAILURE);
         }
     }
@@ -278,6 +276,7 @@ int main(int args, char* argv[]) {
     }
 
     while(1) {
+        if (pid_hijo == 0) sem_post(sem1);
 
         /* Espera inactiva de la señal, el padre espera sus señales y el hijo otras */
         if (pid_P1 != getpid()) sigsuspend(&hijo_mask);
@@ -311,8 +310,6 @@ int main(int args, char* argv[]) {
             /* El padre hace unlink de los semáforos */
             sem_close(sem1);
             sem_close(sem2);
-            sem_unlink(SEM_NAME_1);
-            sem_unlink(SEM_NAME_2);
             exit(EXIT_SUCCESS);
             
         } /* SIGTERM */
@@ -385,8 +382,6 @@ int main(int args, char* argv[]) {
             ciclo++;
             sigusr1_received = 0;
             sem_post(sem2);
-
-            if (pid_hijo == 0) sem_post(sem1);
         }
     }
 }
