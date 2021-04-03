@@ -271,7 +271,6 @@ int main(int args, char* argv[]) {
         printf("Número de ciclo: %d, PID: %jd\n", ciclo, (intmax_t)getpid());
         ciclo++;
         sem_post(sem2);
-        sem_post(sem1);
     } else if (pid_hijo == 0) {
         /* Cuando el último hijo se haya creado,
         dejamos al padre iniciar el ciclo */
@@ -280,19 +279,6 @@ int main(int args, char* argv[]) {
 
     while(1) {
 
-        while(sem_wait(sem1) == -1) {
-            if (errno != EINTR) {
-                perror("sem_wait");
-                sem_close(sem1);
-                sem_close(sem2);
-                if (pid_P1 == getpid()) {
-                    sem_unlink(SEM_NAME_1);
-                    sem_unlink(SEM_NAME_2);
-                }
-                exit(EXIT_FAILURE);
-            }
-        }
-        
         /* Espera inactiva de la señal, el padre espera sus señales y el hijo otras */
         if (pid_P1 != getpid()) sigsuspend(&hijo_mask);
         else sigsuspend(&padre_mask);
@@ -375,6 +361,22 @@ int main(int args, char* argv[]) {
                 }
             }
 
+            /* Soy el padre, ¿Puedo continuar el ciclo? */
+            if (pid_P1 == getpid()) {
+                while(sem_wait(sem1) == -1) {
+                    if (errno != EINTR) {
+                        perror("sem_wait");
+                        sem_close(sem1);
+                        sem_close(sem2);
+                        if (pid_P1 == getpid()) {
+                            sem_unlink(SEM_NAME_1);
+                            sem_unlink(SEM_NAME_2);
+                        }
+                        exit(EXIT_FAILURE);
+                    }
+                }
+            }
+
             if (send_signal(pid_hijo, pid_P1, SIGUSR1) == -1) {
                 exit(EXIT_FAILURE);
             }
@@ -383,7 +385,8 @@ int main(int args, char* argv[]) {
             ciclo++;
             sigusr1_received = 0;
             sem_post(sem2);
-            sem_post(sem1);
+
+            if (pid_hijo == 0) sem_post(sem1);
         }
     }
 }
