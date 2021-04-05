@@ -1,0 +1,9 @@
+conc_cycle.c - Fichero que contiene el código para resolver el ejercicio 10 de la práctica 2.
+sig_kill.c - Fichero que contiene el código del ejercicio 2 a).
+makefile - Fichero que compila y crea el ejecutable del ejercicio de codificación y 2 a).
+    Comandos:
+        make - Compila el código.
+        make clean - Limpia el directorio eliminando ejecutables y .o.
+        make test - Compila el código y ejecuta el ejecutable del ejercicio 10.
+        make val - Compila el código y ejecuta el ejecutable del ejercicio 10. usando valgrind. 
+memoria.pdf - Memoria que contiene las respuestas de las preguntas de la práctica.
