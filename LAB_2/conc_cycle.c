@@ -229,12 +229,6 @@ int main(int args, char* argv[]) {
             perror("sigaction");
             exit(EXIT_FAILURE);
         }
-
-        /* Linkeamos la mascara para bloquear señales */
-        /*if (sigprocmask(SIG_BLOCK, &hijo_mask, &old_set) == -1) {
-            perror("sigprocmask");
-            exit(EXIT_FAILURE);
-        }*/
     }
     /* Linkeamos la estructura sigaction al proceso antecesor */
     else {
@@ -252,12 +246,6 @@ int main(int args, char* argv[]) {
             perror("sigaction");
             exit(EXIT_FAILURE);
         }
-
-        /* Linkeamos la mascara para bloquear señales */
-        /*if (sigprocmask(SIG_BLOCK, &padre_mask, &old_set) == -1) {
-            perror("sigprocmask");
-            exit(EXIT_FAILURE);
-        }*/
     }
 
     /* El padre inicia el ciclo */
