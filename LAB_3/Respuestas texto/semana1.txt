@@ -1,0 +1,24 @@
+1.
+a) El código trata de abrir memoria compartida y después hace un control de errores sobre esta llamada. La llamada puede devolver 2 tipos de errores:
+    1. La función ha dado un error por una razón X.
+    2. La función ha dado un error porque ya existe la memoria compartida, por lo que volvemos a intentar abrir esta memoria pero sin los argumentos O_CREAT y O_EXCL, ya que estos son los que juntos devuelven un error si ya existe la zona de memoria compartida.
+b) Añadir un shm_unlink en caso de que ya exista, haciendo despues otro shm_open con los mismos argumentos.
+
+2.
+a) 
+    struct stat fileStat;
+    fstat(fd, &fileStat);
+b)
+    ftruncate(fd, 5*sizeof(char));
+    Antes de cambiar el tamaño el fichero tiene "Test mesagge". Tras cambiar el tamaño el fichero contiene "Test "
+
+3.
+a) Cada vez que se ejecuta el programa el contador aumenta su valor en 1. Esto es debido a que el valor se guarda en el archivo "test_file.dat"
+b) No, es un archivo binario. El valor se guarda en el archivo de forma binaria.
+
+4.
+a) No tendría sentido ya que el escritor ya hace shm_unlink.
+b) No tendría sentido ya que en el escritor se define el tamaño de la estructura a usar, si modificamos el tamaño en el lector y tratamos de acceder a la memoria, puede que tengamos un error ya que, o bien hemos aumentado la memoria y accedemos a un lugar que no nos corresponde, o bien hemos disminuido la memoria y a lo que antes accediamos ahora ya no podemos. 
+c) shm_open devuelve un descriptor de fichero a la memoria compartida, mientras que mmap mapea la memoria compartida en una variable.
+shm_open carga en RAM la memoria, pero mmap la añade al espacio de direcciones del proceso, por lo que si en algun caso no queremos tener memoria compartida en el espacio de direcciones del proceso pues solo haríamos shm_open.
+d) Accediendo a /dev/shm, manipulando los ficheros.

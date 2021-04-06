@@ -23,8 +23,15 @@ int main(int argc, char *argv[]) {
     }
     dprintf(fd, "%s", MESSAGE);
     /* Get size of the file. */
+    struct stat fileStat;
+    fstat(fd, &fileStat);
+    printf("Tamaño del fichero %ld\n", fileStat.st_size);
 
     /* Truncate the file to size 5. */
+    ftruncate(fd, 5*sizeof(char));
+
+    fstat(fd, &fileStat);
+    printf("Tamaño del fichero %ld\n", fileStat.st_size);
 
     close(fd);
     exit(EXIT_SUCCESS);
