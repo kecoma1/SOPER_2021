@@ -22,7 +22,7 @@ int main(void) {
     };
 
     mqd_t queue = mq_open(MQ_NAME,
-        O_CREAT | O_RDONLY, /* This process is only going to send messages */
+        O_CREAT | O_RDONLY | O_NONBLOCK, /* This process is only going to send messages */
         S_IRUSR | S_IWUSR, /* The user can read and write */
         &attributes);
 

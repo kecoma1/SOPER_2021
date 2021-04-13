@@ -17,7 +17,7 @@ int main(void) {
     attributes.mq_maxmsg = 10;
     attributes.mq_msgsize = MAX_MESSAGE;
 
-    if ((mq = mq_open(MQ_NAME, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR, &attributes)) == (mqd_t)-1) {
+    if ((mq = mq_open(MQ_NAME, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR, &attributes)) == (mqd_t)-1) {
         perror("mq_open");
         exit(EXIT_FAILURE);
     }
