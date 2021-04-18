@@ -35,15 +35,19 @@ int main(int argc, char *argv[]) {
     }
 
     while((input = fgetc(pf)) != EOF){
+        sem_wait(&ui_shared->sem_empty);
+        sem_wait(&ui_shared->sem_mutex);
+
         ui_shared->buffer[ui_shared->post_pos % BUFFSIZE] = input;
-        printf("\nSERVER: %c\n", input);
         ui_shared->post_pos++;
-        sleep(1);
+
+        sem_post(&ui_shared->sem_mutex);
+        sem_post(&ui_shared->sem_fill);
     }
 
     /* Escribiendo el final */
     ui_shared->post_pos++;
-    ui_shared->buffer[ui_shared->post_pos] = '\0';
+    ui_shared->buffer[ui_shared->post_pos % BUFFSIZE] = '\0';
 
     /* Unmapping la memoria compartida */
     munmap(ui_shared, sizeof(ui_struct));

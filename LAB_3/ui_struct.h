@@ -19,6 +19,8 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 
+#include <semaphore.h>
+
 #define INPUTMAXSIZE 128
 #define BUFFSIZE 5
 #define SHM_NAME "/shm_example"
@@ -27,6 +29,9 @@ typedef struct {
     char buffer[BUFFSIZE];
     int post_pos;
     int get_pos;
+    sem_t sem_empty;
+    sem_t sem_fill;
+    sem_t sem_mutex;
 } ui_struct;
 
 #endif

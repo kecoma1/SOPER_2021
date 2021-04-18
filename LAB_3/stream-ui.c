@@ -55,6 +55,27 @@ int main(int argc, char *argv[]) {
     ui_shared->post_pos = 0;
     ui_shared->get_pos = 0;
 
+    /* Inicializando semáforos */
+    if (sem_init(&ui_shared->sem_fill, 1, 0) == -1) {
+        perror("sem_init");
+        munmap(ui_shared, sizeof(ui_struct));
+        shm_unlink(SHM_NAME);
+        exit(EXIT_FAILURE);
+    }
+    if (sem_init(&ui_shared->sem_empty, 1, 1) == -1) {
+        perror("sem_init");
+        munmap(ui_shared, sizeof(ui_struct));
+        shm_unlink(SHM_NAME);
+        exit(EXIT_FAILURE);
+    }
+    if (sem_init(&ui_shared->sem_mutex, 1, 1) == -1) {
+        perror("sem_init");
+        munmap(ui_shared, sizeof(ui_struct));
+        shm_unlink(SHM_NAME);
+        exit(EXIT_FAILURE);
+    }
+
+
     /* Creamos el proceso server */
     pid_server = fork();
     if (pid_server == -1) {
@@ -108,6 +129,11 @@ int main(int argc, char *argv[]) {
     /* Liberando recursos */
     munmap(ui_shared, sizeof(ui_struct));
     shm_unlink(SHM_NAME);
+
+    /* Destruyendo semaforos */
+    sem_destroy(&ui_shared->sem_fill);
+    sem_destroy(&ui_shared->sem_empty);
+    sem_destroy(&ui_shared->sem_mutex);
 
     return 0;
 }
