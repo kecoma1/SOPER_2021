@@ -11,7 +11,9 @@
  * @copyright Copyright (c) 2021
  * 
  */
+
 #include "ui_struct.h"
+
 int main(int argc, char *argv[]) {
     pid_t pid_ui = 0, pid_server = 0, pid_client = 0;
     char input[INPUTMAXSIZE] = "\0";
@@ -113,6 +115,7 @@ int main(int argc, char *argv[]) {
         }
     } 
 
+    /* Solo el padre puede encargarse de crear al cliente */
     if (pid_ui == getppid()) {
         /* Creamos el proceso client */
         pid_client = fork();
@@ -137,15 +140,18 @@ int main(int argc, char *argv[]) {
 
     /* Recogemos los comandos */
     while(1) {
+        /* Recogiendo la input de stdin */
         printf(">>> ");
         fgets(input, INPUTMAXSIZE, stdin);
 
+        /* Marcando el final de la string */
         int len = strlen(input);
         if (len == INPUTMAXSIZE)
             input[INPUTMAXSIZE-1] = '\0';
         else
             input[len] = '\0';
         
+        /* Construyendo el mensaje */
         strcpy(msg.message, input);
 
         /* Comando post */

@@ -1,7 +1,20 @@
+/**
+ * @file stream-client.c
+ * @author Kevin de la Coba Malam
+ *         Marcos Aarón Bernuy
+ * @brief Archivo donde se define el comportamiento del "cliente".
+ * Aquí se lee la memoria compartida para posteriormente escribir
+ * el contenido en un fichero.
+ * @version 1.0
+ * @date 2021-04-18
+ * 
+ * @copyright Copyright (c) 2021
+ * 
+ */
+
 #include "ui_struct.h"
 
 int main(int argc, char *argv[]){
-
     char *filename = argv[0];
     char input = '0';
     FILE *pf = NULL;
@@ -64,7 +77,6 @@ int main(int argc, char *argv[]){
             exit(EXIT_FAILURE);
         }
 
-
         /* Salimos del bucle para finalizar la ejecución */
         if(strncmp(msg.message, "exit", 4) == 0){
             break;
@@ -78,7 +90,7 @@ int main(int argc, char *argv[]){
             mq_close(queue);
             exit(EXIT_FAILURE);
         }
-
+        /* 2 segundos desde el momento actual */
         ts.tv_sec += 2;
 
         if (sem_timedwait(&ui_shared->sem_fill, &ts) == -1 && errno == EINTR) {
@@ -92,6 +104,7 @@ int main(int argc, char *argv[]){
 
         input = ui_shared->buffer[ui_shared->get_pos % BUFFSIZE];
         if (input == '\0') {
+            printf("CLIENT: No hay más que leer.\n");
             sem_post(&ui_shared->sem_mutex);
             sem_post(&ui_shared->sem_empty);
             break;
@@ -102,6 +115,8 @@ int main(int argc, char *argv[]){
         sem_post(&ui_shared->sem_mutex);
         sem_post(&ui_shared->sem_empty);
     }
+
+    printf("CLIENT: Ejecución finalizada.\n");
 
     /* Unmapping la memoria compartida */
     munmap(ui_shared, sizeof(ui_struct));
