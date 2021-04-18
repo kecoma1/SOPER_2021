@@ -3,8 +3,10 @@
 int main(int argc, char *argv[]) {
 
     char *filename = argv[0];
+    char input = '0';
     ui_struct *ui_shared = NULL;
     int fd_shm = 0;
+    FILE *pf = NULL;
 
     if (argc < 1) {
         printf("\nEs necesario un fichero de entrada.\n");
@@ -22,14 +24,30 @@ int main(int argc, char *argv[]) {
     close(fd_shm);
     if (ui_shared == MAP_FAILED) {
         perror("SERVER: mmap");
-        shm_unlink(SHM_NAME);
         exit(EXIT_FAILURE);
     }
 
-    printf("\nSERVER: %d %d\n", ui_shared->post_pos, ui_shared->get_pos);
+    pf = fopen(filename, "r");
+    if (pf == NULL) {
+        perror("SERVER: fopen");
+        munmap(ui_shared, sizeof(ui_struct));
+        exit(EXIT_FAILURE);
+    }
 
-    /* Unmapping of the shared memory */
-    munmap(shm_struct, sizeof(ShmExampleStruct));
+    while((input = fgetc(pf)) != EOF){
+        ui_shared->buffer[ui_shared->post_pos % BUFFSIZE] = input;
+        printf("\nSERVER: %c\n", input);
+        ui_shared->post_pos++;
+        sleep(1);
+    }
+
+    /* Escribiendo el final */
+    ui_shared->post_pos++;
+    ui_shared->buffer[ui_shared->post_pos] = '\0';
+
+    /* Unmapping la memoria compartida */
+    munmap(ui_shared, sizeof(ui_struct));
+    fclose(pf);
 
     exit(EXIT_SUCCESS);
 }

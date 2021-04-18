@@ -30,6 +30,7 @@ int main(int argc, char *argv[]) {
     /* Abrimos la memoria compartida */
     if ((fd_shm = shm_open(SHM_NAME, O_RDWR | O_CREAT | O_EXCL,  S_IRUSR | S_IWUSR)) == -1) {
         perror("shm_open");
+        shm_unlink(SHM_NAME);
         exit(EXIT_FAILURE);
     }
 
@@ -50,19 +51,24 @@ int main(int argc, char *argv[]) {
     }
     
     /* Inicializando variables */
-    ui_shared->post_pos = 1;
-    ui_shared->get_pos = 2;
+    strcpy(ui_shared->buffer, "00000");
+    ui_shared->post_pos = 0;
+    ui_shared->get_pos = 0;
 
     /* Creamos el proceso server */
     pid_server = fork();
     if (pid_server == -1) {
         perror("fork");
-        return -1;
+        munmap(ui_shared, sizeof(ui_struct));
+        shm_unlink(SHM_NAME);
+        exit(EXIT_FAILURE);
     }
     /* Ejecución del proceso server */
     if (pid_server == 0) {
         if (execl("./stream-server", argv[2], (char*) NULL) == -1) {
             perror("execl");
+            munmap(ui_shared, sizeof(ui_struct));
+            shm_unlink(SHM_NAME);
             exit(EXIT_FAILURE);
         }
     } 
@@ -74,13 +80,17 @@ int main(int argc, char *argv[]) {
             perror("fork");
             /* Matamos al proceso server */
             kill(pid_server, SIGKILL);
-            return -1;
+            munmap(ui_shared, sizeof(ui_struct));
+            shm_unlink(SHM_NAME);
+            exit(EXIT_FAILURE);
         }
     }
     /* Ejecución del proceso client */
     if (pid_client == 0) {
         if (execl("./stream-client", argv[1], (char*) NULL) == -1) {
             perror("execl");
+            munmap(ui_shared, sizeof(ui_struct));
+            shm_unlink(SHM_NAME);
             exit(EXIT_FAILURE);
         }
     }

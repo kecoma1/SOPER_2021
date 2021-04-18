@@ -9,8 +9,8 @@ stream_server:
 stream_client:
 	gcc stream-client.c -o stream-client -lrt
 
-valgrind_test: stream_ui
-	valgrind --leak-check=full ./stream-ui a b
+valgrind_test: stream_ui stream_server stream_client
+	valgrind --leak-check=full ./stream-ui a.txt b.txt
 
 clean:
 	rm -f stream-ui stream-client stream-server *.o
