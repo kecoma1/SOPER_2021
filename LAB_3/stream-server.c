@@ -11,7 +11,7 @@ int main(int argc, char *argv[]) {
     Mensaje msg;
 
     if (argc < 1) {
-        printf("\nEs necesario un fichero de entrada.\n");
+        printf("\nSERVER: Es necesario un fichero de entrada.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
 
     /* Abrimos la memoria compartida */
     if ((fd_shm = shm_open(SHM_NAME, O_RDWR, 0)) == -1) {
-        perror("CLIENT: shm_open");
+        perror("SERVER: shm_open");
         exit(EXIT_FAILURE);
     }
 
@@ -50,20 +50,23 @@ int main(int argc, char *argv[]) {
     /* Abrimos la cola de mensajes */
     mqd_t queue = mq_open(MQ_NAME_SERVER, O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR, &attributes);
     if (queue == (mqd_t)-1) {
-        perror("mq_open");
+        perror("SERVER: mq_open");
         exit(EXIT_FAILURE);
     }
 
     while(input != '\0'){
+        printf("SERVE: EMPIEZO LOOP");
+
 
         /* Recibimos la instruccion */
         if (mq_receive(queue, (char *)&msg, sizeof(msg), NULL) == -1){
-            perror("mq_receive");
+            perror("SERVER: mq_receive");
             munmap(ui_shared, sizeof(ui_struct));
             fclose(pf);
             mq_close(queue);
             exit(EXIT_FAILURE);
         }
+        printf("SERVER: %s\n", msg.message);
 
         /* Salimos del bucle para finalizar la ejecución */
         if(strncmp(msg.message, "exit", 4)){
@@ -72,7 +75,7 @@ int main(int argc, char *argv[]) {
 
         /* Obteniendof el tiempo actual para el sem_timedwait */
         if (clock_gettime(CLOCK_REALTIME, &ts) == -1) {
-            perror("clock_gettime");
+            perror("SERVER: clock_gettime");
             munmap(ui_shared, sizeof(ui_struct));
             fclose(pf);
             mq_close(queue);
@@ -82,11 +85,11 @@ int main(int argc, char *argv[]) {
         ts.tv_sec += 2;
 
         if (sem_timedwait(&ui_shared->sem_empty, &ts) == -1 && errno == EINTR) {
-            printf("Se desecha la operación.\n");
+            printf("SERVER: Se desecha la operación.\n");
             continue;
         }
         if (sem_timedwait(&ui_shared->sem_mutex, &ts) == -1 && errno == EINTR) {
-            printf("Se desecha la operación.\n");
+            printf("SERVER: Se desecha la operación.\n");
             continue;
         }
         input = fgetc(pf);
@@ -98,6 +101,8 @@ int main(int argc, char *argv[]) {
 
         sem_post(&ui_shared->sem_mutex);
         sem_post(&ui_shared->sem_fill);
+
+        printf("SERVER: TERMINO LOOP");
     }
 
 

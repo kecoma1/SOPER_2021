@@ -11,9 +11,7 @@
  * @copyright Copyright (c) 2021
  * 
  */
-
 #include "ui_struct.h"
-
 int main(int argc, char *argv[]) {
     pid_t pid_ui = 0, pid_server = 0, pid_client = 0;
     char input[INPUTMAXSIZE] = "\0";
@@ -153,7 +151,7 @@ int main(int argc, char *argv[]) {
         /* Comando post */
         if(strncmp(msg.message, "post", 4) == 0){
             /* Mandando mensaje a el stream-server */
-            if(mq_send(queue_server, (char *)&msg, sizeof(msg), 0) == -1){
+            if(mq_send(queue_server, (const char *)&msg, sizeof(msg), 0) == -1){
                 perror("execl");
 
                 munmap(ui_shared, sizeof(ui_struct));
@@ -172,7 +170,7 @@ int main(int argc, char *argv[]) {
         } /* Comando get */
         else if (strncmp(msg.message, "get", 3) == 0) {
             /* Mandando mensaje al proceso stream-client */
-            if(mq_send(queue_client, (char *)&msg, sizeof(msg), 0) == -1){
+            if(mq_send(queue_client, (const char *)&msg, sizeof(msg), 0) == -1){
                 perror("execl");
                 munmap(ui_shared, sizeof(ui_struct));
                 shm_unlink(SHM_NAME);
@@ -189,8 +187,8 @@ int main(int argc, char *argv[]) {
             }
         } else if (strncmp(msg.message, "exit", 4) == 0) {
             /* Mandando mensajes a ambos procesos */
-            if(mq_send(queue_client, (char *)&msg, sizeof(msg), 0) == -1 
-            || mq_send(queue_server, (char *)&msg, sizeof(msg), 0) == -1) {
+            if(mq_send(queue_client, (const char *)&msg, sizeof(msg), 0) == -1 
+            || mq_send(queue_server, (const char *)&msg, sizeof(msg), 0) == -1) {
                 perror("execl");
                 munmap(ui_shared, sizeof(ui_struct));
                 shm_unlink(SHM_NAME);

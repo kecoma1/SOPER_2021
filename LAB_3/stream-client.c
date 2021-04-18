@@ -48,21 +48,25 @@ int main(int argc, char *argv[]){
     /* Abrimos la cola de mensajes */
     mqd_t queue = mq_open(MQ_NAME_CLIENT, O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR, &attributes);
     if (queue == (mqd_t)-1) {
-        perror("mq_open");
+        perror("CLIENT: mq_open");
         munmap(ui_shared, sizeof(ui_struct));
         exit(EXIT_FAILURE);
     }
 
     /* Hacemos un  bucle para escribir en el fichero */
     while(input != '\0') {
+        printf("CLIENT: EMpiezo LOOP");
+
         /* Recibimos la instruccion mandada */
         if (mq_receive(queue, (char *)&msg, sizeof(msg), NULL) == -1){
-            perror("mq_receive");
+            perror("CLIENT: mq_receive");
             munmap(ui_shared, sizeof(ui_struct));
             fclose(pf);
             mq_close(queue);
             exit(EXIT_FAILURE);
         }
+
+        printf("CLIENT: %s\n", msg.message);
 
         /* Salimos del bucle para finalizar la ejecución */
         if(strncmp(msg.message, "exit", 4)){
@@ -71,7 +75,7 @@ int main(int argc, char *argv[]){
 
         /* Obteniendo el tiempo actual para el sem_timedwait */
         if (clock_gettime(CLOCK_REALTIME, &ts) == -1) {
-            perror("clock_gettime");
+            perror("CLIENT: clock_gettime");
             munmap(ui_shared, sizeof(ui_struct));
             fclose(pf);
             mq_close(queue);
@@ -81,11 +85,11 @@ int main(int argc, char *argv[]){
         ts.tv_sec += 2;
 
         if (sem_timedwait(&ui_shared->sem_fill, &ts) == -1 && errno == EINTR) {
-            printf("Se desecha la operación.\n");
+            printf("CLIENT: Se desecha la operación.\n");
             continue;
         }
         if (sem_timedwait(&ui_shared->sem_mutex, &ts) == -1 && errno == EINTR) {
-            printf("Se desecha la operación.\n");
+            printf("CLIENT: Se desecha la operación.\n");
             continue;
         }
 
@@ -100,6 +104,8 @@ int main(int argc, char *argv[]){
 
         sem_post(&ui_shared->sem_mutex);
         sem_post(&ui_shared->sem_empty);
+
+        printf("CLIENT: TERMINO LOOP");
     }
 
     /* Unmapping la memoria compartida */
