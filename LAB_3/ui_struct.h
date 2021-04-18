@@ -4,7 +4,7 @@
  *         Marcos Aarón Bernuy
  * @brief Header donde se definen las estructuras usadas y
  * las librerias necesarias para la ejecución del programa.
- * @version 0.1
+ * @version 1.0
  * @date 2021-04-18
  * 
  * @copyright Copyright (c) 2021
