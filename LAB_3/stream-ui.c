@@ -41,11 +41,16 @@ typedef struct {
 } ui_struct;
 
 
-int main() {
+int main(int argc, char *argv[]) {
     pid_t pid_ui = 0, pid_server = 0, pid_client = 0;
     char input[INPUTMAXSIZE] = "\0";
     int fd_shm = 0;
     ui_struct *ui_shared;
+
+    if (argc < 3) {
+        printf("Se deben incluir un fichero de entrada y otro de salida.\n./stream-ui <entrada> <salida>\n");
+        return -1;
+    }
 
     pid_ui = getppid();
 
