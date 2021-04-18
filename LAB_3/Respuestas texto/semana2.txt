@@ -10,4 +10,4 @@ Si lo cambiamos por O_WRONLY, podemos enviar mensajes, pero a la hora de leerlos
 a) El receptor recibe el mensaje sin problemas.
 b) Sucede lo mismo pero el receptor se bloquea hasta que recibe el mensaje. Una vez lo recibe continua su ejecución.
 c) Si ejecutamos primero el receptor, la ejecución sería erronea ya que al llamar a receive, está función devuelve un error y se cierra el programa.
-d) La cola de mensajes es manejada por el sistema operativo, por lo que no sería necesario sincronizar procesos, a no ser que se quiera un orden especifico de ejecución, por ejemplo si tenemos 3 procesos receptores, y queremos que primero lea el P1, luego P3 y por último P2, si queremos ese orden siempre, sí podríamos usar un sistema se sincronización.
+d) La cola de mensajes es manejada por el sistema operativo, por lo que no sería necesario sincronizar procesos, a no ser que se quiera un orden especifico de ejecución, por ejemplo si tenemos 3 procesos receptores, y queremos que primero lea el P1, luego P3 y por último P2, si queremos ese orden siempre, sí podríamos usar un sistema de sincronización.

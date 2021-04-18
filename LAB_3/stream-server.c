@@ -8,6 +8,7 @@ int main(int argc, char *argv[]) {
     int fd_shm = 0;
     FILE *pf = NULL;
     struct timespec ts;
+    Mensaje msg;
 
     if (argc < 1) {
         printf("\nEs necesario un fichero de entrada.\n");
@@ -30,6 +31,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    /* Abrimos el archivo pasado como argumento */
     pf = fopen(filename, "r");
     if (pf == NULL) {
         perror("SERVER: fopen");
@@ -37,10 +39,45 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    /* Inicializamos la estructura de la cola de mensajes */
+    struct mq_attr attributes = {
+        .mq_flags = 0,
+        .mq_maxmsg = 10,
+        .mq_curmsgs = 0,
+        .mq_msgsize = sizeof(Mensaje)
+    };
+
+    /* Abrimos la cola de mensajes */
+    mqd_t queue = mq_open(MQ_NAME_SERVER, O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR, &attributes);
+    if (queue == (mqd_t)-1) {
+        perror("mq_open");
+        exit(EXIT_FAILURE);
+    }
+
     while(input != '\0'){
-        /* Obteniendof el tiempo actual para el sem_timedwait */
-        if (clock_gettime(CLOCK_REALTIME, &ts) == -1)
+
+        /* Recibimos la instruccion */
+        if (mq_receive(queue, (char *)&msg, sizeof(msg), NULL) == -1){
+            perror("mq_receive");
+            munmap(ui_shared, sizeof(ui_struct));
+            fclose(pf);
+            mq_close(queue);
             exit(EXIT_FAILURE);
+        }
+
+        /* Salimos del bucle para finalizar la ejecución */
+        if(strncmp(msg.message, "exit", 4)){
+            break;
+        }
+
+        /* Obteniendof el tiempo actual para el sem_timedwait */
+        if (clock_gettime(CLOCK_REALTIME, &ts) == -1) {
+            perror("clock_gettime");
+            munmap(ui_shared, sizeof(ui_struct));
+            fclose(pf);
+            mq_close(queue);
+            exit(EXIT_FAILURE);
+        }
 
         ts.tv_sec += 2;
 
@@ -67,6 +104,9 @@ int main(int argc, char *argv[]) {
     /* Unmapping la memoria compartida */
     munmap(ui_shared, sizeof(ui_struct));
     fclose(pf);
+
+    /* Cerrando la cola de mensajes */
+    mq_close(queue);
 
     exit(EXIT_SUCCESS);
 }

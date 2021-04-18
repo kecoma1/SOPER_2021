@@ -21,16 +21,15 @@
 
 #include <semaphore.h>
 
-#include <time.h>
-
 #include <mqueue.h>
-#include <sys/stat.h>
-#include <fcntl.h>
+
+#include <time.h>
 
 #define INPUTMAXSIZE 128
 #define BUFFSIZE 5
 #define SHM_NAME "/shm_example"
-#define MQ_NAME "/cola"
+#define MQ_NAME_SERVER "/cola_server"
+#define MQ_NAME_CLIENT "/cola_client"
 
 typedef struct {
     char buffer[BUFFSIZE];
@@ -43,7 +42,7 @@ typedef struct {
 
 typedef struct {
     char message[INPUTMAXSIZE];
-} mensaje;
+} Mensaje;
 
 #endif
 

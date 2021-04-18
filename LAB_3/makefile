@@ -12,5 +12,8 @@ stream_client:
 valgrind_test: stream_ui stream_server stream_client
 	valgrind --leak-check=full ./stream-ui a.txt b.txt
 
+test: stream_ui stream_server stream_client
+	cat commands.txt | ./stream-ui a.txt b.txt
+
 clean:
 	rm -f stream-ui stream-client stream-server *.o

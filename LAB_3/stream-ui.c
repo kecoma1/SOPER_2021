@@ -19,6 +19,7 @@ int main(int argc, char *argv[]) {
     char input[INPUTMAXSIZE] = "\0";
     int fd_shm = 0;
     ui_struct *ui_shared = NULL;
+    Mensaje msg;
 
     if (argc < 3) {
         printf("Se deben incluir un fichero de entrada y otro de salida.\n./stream-ui <salida> <entrada>\n");
@@ -83,10 +84,18 @@ int main(int argc, char *argv[]) {
         .mq_msgsize = sizeof(Mensaje)
     };
 
-    mqd_t queue = mq_open(MQ_NAME,
-        O_CREAT | O_WRONLY | O_NONBLOCK, /* This process is only going to send messages */
-        S_IRUSR | S_IWUSR, /* The user can read and write */
-        &attributes);
+    /* Abrimos las colas de mensajes */
+    mqd_t queue_server = mq_open(MQ_NAME_SERVER, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR, &attributes);
+    if (queue_server == (mqd_t)-1) {
+        perror("mq_open");
+        exit(EXIT_FAILURE);
+    }
+
+    mqd_t queue_client = mq_open(MQ_NAME_CLIENT, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR, &attributes);
+    if (queue_client == (mqd_t)-1) {
+        perror("mq_open");
+        exit(EXIT_FAILURE);
+    }
 
     /* Creamos el proceso server */
     pid_server = fork();
@@ -132,6 +141,74 @@ int main(int argc, char *argv[]) {
     while(strcmp("exit", input) != 0) {
         printf(">>> ");
         scanf("%s", input);
+
+        int len = strlen(input);
+        if (len == INPUTMAXSIZE)
+            input[INPUTMAXSIZE-1] = '\0';
+        else
+            input[len] = '\0';
+        
+        strcpy(msg.message, input);
+
+        /* Comando post */
+        if(strncmp(msg.message, "post", 4) == 0){
+            /* Mandando mensaje a el stream-server */
+            if(mq_send(queue_server, (char *)&msg, sizeof(msg), 0) == -1){
+                perror("execl");
+
+                munmap(ui_shared, sizeof(ui_struct));
+                shm_unlink(SHM_NAME);
+                
+                mq_close(queue_client);
+                mq_close(queue_server);
+                mq_unlink(MQ_NAME_SERVER);
+                mq_unlink(MQ_NAME_CLIENT);
+
+                sem_destroy(&ui_shared->sem_fill);
+                sem_destroy(&ui_shared->sem_empty);
+                sem_destroy(&ui_shared->sem_mutex);
+                exit(EXIT_FAILURE);
+            }
+        } /* Comando get */
+        else if (strncmp(msg.message, "get", 3) == 0) {
+            /* Mandando mensaje al proceso stream-client */
+            if(mq_send(queue_client, (char *)&msg, sizeof(msg), 0) == -1){
+                perror("execl");
+                munmap(ui_shared, sizeof(ui_struct));
+                shm_unlink(SHM_NAME);
+                
+                mq_close(queue_client);
+                mq_close(queue_server);
+                mq_unlink(MQ_NAME_SERVER);
+                mq_unlink(MQ_NAME_CLIENT);
+
+                sem_destroy(&ui_shared->sem_fill);
+                sem_destroy(&ui_shared->sem_empty);
+                sem_destroy(&ui_shared->sem_mutex);
+                exit(EXIT_FAILURE);
+            }
+        } else if (strncmp(msg.message, "exit", 4) == 0) {
+            /* Mandando mensajes a ambos procesos */
+            if(mq_send(queue_client, (char *)&msg, sizeof(msg), 0) == -1 
+            || mq_send(queue_server, (char *)&msg, sizeof(msg), 0) == -1) {
+                perror("execl");
+                munmap(ui_shared, sizeof(ui_struct));
+                shm_unlink(SHM_NAME);
+                
+                mq_close(queue_client);
+                mq_close(queue_server);
+                mq_unlink(MQ_NAME_SERVER);
+                mq_unlink(MQ_NAME_CLIENT);
+
+                sem_destroy(&ui_shared->sem_fill);
+                sem_destroy(&ui_shared->sem_empty);
+                sem_destroy(&ui_shared->sem_mutex);
+                exit(EXIT_FAILURE);
+            }
+            break;
+        } else {
+            printf("Comando invalido. post, get, exit\n");
+        }
     }
 
     /* Esperamos a los procesos */
@@ -141,6 +218,12 @@ int main(int argc, char *argv[]) {
     /* Liberando recursos */
     munmap(ui_shared, sizeof(ui_struct));
     shm_unlink(SHM_NAME);
+
+    /* Destruyendo las colas de mensajes */
+    mq_close(queue_client);
+    mq_close(queue_server);
+    mq_unlink(MQ_NAME_SERVER);
+    mq_unlink(MQ_NAME_CLIENT);
 
     /* Destruyendo semaforos */
     sem_destroy(&ui_shared->sem_fill);
