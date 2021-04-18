@@ -11,44 +11,17 @@
  * @copyright Copyright (c) 2021
  * 
  */
-#include <fcntl.h>
 
-#include <sys/types.h>
-#include <unistd.h>
-#include <wait.h>
-
-#include <stdlib.h>
-#include <stdio.h>
-
-#include <errno.h>
-
-#include <signal.h>
-
-#include <string.h>
-
-#include <sys/mman.h>
-#include <sys/stat.h>
-
-#define INPUTMAXSIZE 128
-#define BUFFSIZE 5
-#define SHM_NAME "/shm_example"
-
-
-typedef struct {
-    char buffer[BUFFSIZE];
-    int post_pos;
-    int get_pos;
-} ui_struct;
-
+#include "ui_struct.h"
 
 int main(int argc, char *argv[]) {
     pid_t pid_ui = 0, pid_server = 0, pid_client = 0;
     char input[INPUTMAXSIZE] = "\0";
     int fd_shm = 0;
-    ui_struct *ui_shared;
+    ui_struct *ui_shared = NULL;
 
     if (argc < 3) {
-        printf("Se deben incluir un fichero de entrada y otro de salida.\n./stream-ui <entrada> <salida>\n");
+        printf("Se deben incluir un fichero de entrada y otro de salida.\n./stream-ui <salida> <entrada>\n");
         return -1;
     }
 
@@ -76,6 +49,10 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
     
+    /* Inicializando variables */
+    ui_shared->post_pos = 1;
+    ui_shared->get_pos = 2;
+
     /* Creamos el proceso server */
     pid_server = fork();
     if (pid_server == -1) {
@@ -84,7 +61,10 @@ int main(int argc, char *argv[]) {
     }
     /* Ejecución del proceso server */
     if (pid_server == 0) {
-        return -1;
+        if (execl("./stream-server", argv[2], (char*) NULL) == -1) {
+            perror("execl");
+            exit(EXIT_FAILURE);
+        }
     } 
 
     if (pid_ui == getppid()) {
@@ -99,7 +79,10 @@ int main(int argc, char *argv[]) {
     }
     /* Ejecución del proceso client */
     if (pid_client == 0) {
-        return -1;
+        if (execl("./stream-client", argv[1], (char*) NULL) == -1) {
+            perror("execl");
+            exit(EXIT_FAILURE);
+        }
     }
 
     /* Recogemos los comandos */
