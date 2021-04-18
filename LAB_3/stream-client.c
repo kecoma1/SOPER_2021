@@ -55,8 +55,6 @@ int main(int argc, char *argv[]){
 
     /* Hacemos un  bucle para escribir en el fichero */
     while(input != '\0') {
-        printf("CLIENT: EMpiezo LOOP");
-
         /* Recibimos la instruccion mandada */
         if (mq_receive(queue, (char *)&msg, sizeof(msg), NULL) == -1){
             perror("CLIENT: mq_receive");
@@ -66,10 +64,9 @@ int main(int argc, char *argv[]){
             exit(EXIT_FAILURE);
         }
 
-        printf("CLIENT: %s\n", msg.message);
 
         /* Salimos del bucle para finalizar la ejecución */
-        if(strncmp(msg.message, "exit", 4)){
+        if(strncmp(msg.message, "exit", 4) == 0){
             break;
         }
 
@@ -104,8 +101,6 @@ int main(int argc, char *argv[]){
 
         sem_post(&ui_shared->sem_mutex);
         sem_post(&ui_shared->sem_empty);
-
-        printf("CLIENT: TERMINO LOOP");
     }
 
     /* Unmapping la memoria compartida */

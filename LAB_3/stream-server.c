@@ -48,16 +48,13 @@ int main(int argc, char *argv[]) {
     };
 
     /* Abrimos la cola de mensajes */
-    mqd_t queue = mq_open(MQ_NAME_SERVER, O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR, &attributes);
+    mqd_t queue = mq_open(MQ_NAME_SERVER, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR, &attributes);
     if (queue == (mqd_t)-1) {
         perror("SERVER: mq_open");
         exit(EXIT_FAILURE);
     }
 
     while(input != '\0'){
-        printf("SERVE: EMPIEZO LOOP");
-
-
         /* Recibimos la instruccion */
         if (mq_receive(queue, (char *)&msg, sizeof(msg), NULL) == -1){
             perror("SERVER: mq_receive");
@@ -66,10 +63,9 @@ int main(int argc, char *argv[]) {
             mq_close(queue);
             exit(EXIT_FAILURE);
         }
-        printf("SERVER: %s\n", msg.message);
 
         /* Salimos del bucle para finalizar la ejecución */
-        if(strncmp(msg.message, "exit", 4)){
+        if(strncmp(msg.message, "exit", 4) == 0){
             break;
         }
 
@@ -101,8 +97,6 @@ int main(int argc, char *argv[]) {
 
         sem_post(&ui_shared->sem_mutex);
         sem_post(&ui_shared->sem_fill);
-
-        printf("SERVER: TERMINO LOOP");
     }
 
 

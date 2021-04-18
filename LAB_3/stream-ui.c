@@ -136,9 +136,9 @@ int main(int argc, char *argv[]) {
     }
 
     /* Recogemos los comandos */
-    while(strcmp("exit", input) != 0) {
+    while(1) {
         printf(">>> ");
-        scanf("%s", input);
+        fgets(input, INPUTMAXSIZE, stdin);
 
         int len = strlen(input);
         if (len == INPUTMAXSIZE)

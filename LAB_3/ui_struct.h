@@ -45,5 +45,3 @@ typedef struct {
 } Mensaje;
 
 #endif
-
-R
