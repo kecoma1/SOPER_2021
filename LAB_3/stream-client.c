@@ -7,6 +7,7 @@ int main(int argc, char *argv[]){
     FILE *pf = NULL;
     ui_struct *ui_shared = NULL;
     int fd_shm = 0;
+    struct timespec ts;
 
     if (argc < 1){
         printf("\nNo se ha recibido fichero de salida.\n");
@@ -37,11 +38,27 @@ int main(int argc, char *argv[]){
 
     /* Hacemos un  bucle para escribir en el fichero */
     while(input != '\0') {
-        sem_wait(&ui_shared->sem_fill);
-        sem_wait(&ui_shared->sem_mutex);
+        /* Obteniendof el tiempo actual para el sem_timedwait */
+        if (clock_gettime(CLOCK_REALTIME, &ts) == -1)
+            exit(EXIT_FAILURE);
+
+        ts.tv_sec += 2;
+
+        if (sem_timedwait(&ui_shared->sem_fill, &ts) == -1 && errno == EINTR) {
+            printf("Se desecha la operación.\n");
+            continue;
+        }
+        if (sem_timedwait(&ui_shared->sem_mutex, &ts) == -1 && errno == EINTR) {
+            printf("Se desecha la operación.\n");
+            continue;
+        }
 
         input = ui_shared->buffer[ui_shared->get_pos % BUFFSIZE];
-        if (input == '\0') break;
+        if (input == '\0') {
+            sem_post(&ui_shared->sem_mutex);
+            sem_post(&ui_shared->sem_empty);
+            break;
+        }
         fwrite(&input, 1, 1, pf);
         ui_shared->get_pos++;
 
@@ -50,7 +67,6 @@ int main(int argc, char *argv[]){
     }
 
     ui_shared->get_pos++;
-    printf("\nCLIENT: SALGO\n");
     /* Unmapping la memoria compartida */
     munmap(ui_shared, sizeof(ui_struct));
     fclose(pf);

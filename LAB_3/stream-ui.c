@@ -75,6 +75,18 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    /* Inicializamos la estructura de la cola de mensajes */
+    struct mq_attr attributes = {
+        .mq_flags = 0,
+        .mq_maxmsg = 10,
+        .mq_curmsgs = 0,
+        .mq_msgsize = sizeof(Mensaje)
+    };
+
+    mqd_t queue = mq_open(MQ_NAME,
+        O_CREAT | O_WRONLY | O_NONBLOCK, /* This process is only going to send messages */
+        S_IRUSR | S_IWUSR, /* The user can read and write */
+        &attributes);
 
     /* Creamos el proceso server */
     pid_server = fork();
