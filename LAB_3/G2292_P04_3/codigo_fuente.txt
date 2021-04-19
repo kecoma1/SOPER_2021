@@ -1,0 +1,15 @@
+stream-ui.c - Fichero perteneciente al ejercicio de codificación
+		que contiene el código del proceso principal del programa.
+stream-server.c - Fichero perteneciente al ejercicio de codificación 
+		que contiene el código del proceso "server".
+stream-client.c - Fichero perteneciente al ejercicio de codificación 
+		que contiene el código del proceso "client".
+ui_struct.h -Fichero donde se define la estructura compartida y los mensajes.
+a.txt, b.txt - Ficheros de ejemplo para la ejecución del ejercicio de codificación.
+makefile - Fichero que compila y crea el ejecutable del ejercicio de codificación.
+    Comandos:
+        make - Compila el código.
+        make clean - Limpia el directorio eliminando ejecutables y .o.
+        make test - Compila el código y ejecuta el ejecutable del ejercicio 7 usando a.txt y b.txt.
+        make val - Compila el código y ejecuta el ejecutable del ejercicio 7 usando a.txt, b.txt y valgrind. 
+memoria.pdf - Memoria que contiene las respuestas de las preguntas de la práctica.
