@@ -61,6 +61,8 @@ int main(int argc, char *argv[]) {
     mqd_t queue = mq_open(MQ_NAME_SERVER, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR, &attributes);
     if (queue == (mqd_t)-1) {
         perror("SERVER: mq_open");
+        munmap(ui_shared, sizeof(ui_struct));
+        fclose(pf);
         exit(EXIT_FAILURE);
     }
 
@@ -103,7 +105,7 @@ int main(int argc, char *argv[]) {
 
         /* Final del archivo */
         if (input == EOF) {
-            printf("SERVER: No hay más que escribir.\n");
+            printf("SERVER: No hay más que escribir. - ");
             input = '\0';
         }
 
@@ -114,10 +116,12 @@ int main(int argc, char *argv[]) {
         sem_post(&ui_shared->sem_fill);
     }
 
-    printf("SERVER: Ejecución finalizada.\n");
+    printf("SERVER: Ejecución finalizada.\n>>> ");
 
     /* Unmapping la memoria compartida */
     munmap(ui_shared, sizeof(ui_struct));
+
+    /* Cerrando el archivo */
     fclose(pf);
 
     /* Cerrando la cola de mensajes */

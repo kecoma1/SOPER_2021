@@ -63,6 +63,7 @@ int main(int argc, char *argv[]){
     if (queue == (mqd_t)-1) {
         perror("CLIENT: mq_open");
         munmap(ui_shared, sizeof(ui_struct));
+        fclose(pf);
         exit(EXIT_FAILURE);
     }
 
@@ -104,7 +105,7 @@ int main(int argc, char *argv[]){
 
         input = ui_shared->buffer[ui_shared->get_pos % BUFFSIZE];
         if (input == '\0') {
-            printf("CLIENT: No hay más que leer.\n");
+            printf("CLIENT: No hay más que leer. - ");
             sem_post(&ui_shared->sem_mutex);
             sem_post(&ui_shared->sem_empty);
             break;
@@ -116,10 +117,12 @@ int main(int argc, char *argv[]){
         sem_post(&ui_shared->sem_empty);
     }
 
-    printf("CLIENT: Ejecución finalizada.\n");
+    printf("CLIENT: Ejecución finalizada.\n>>> ");
 
     /* Unmapping la memoria compartida */
     munmap(ui_shared, sizeof(ui_struct));
+
+    /* Cerrando el archivo */
     fclose(pf);
 
     /* Cerrando la cola de mensajes */
