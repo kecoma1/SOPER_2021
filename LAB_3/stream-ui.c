@@ -11,7 +11,35 @@
  * @copyright Copyright (c) 2021
  * 
  */
+
 #include "ui_struct.h"
+
+/**
+ * @brief Función para liberar todos los recursos.
+ * Esta función debe ser usada una vez se han inicializado
+ * todas las estructuras necesarias para la ejecución.
+ * 
+ * @param queue_server Cola de mensajes que se comunica con el servidor.
+ * @param queue_client Cola de mensajes que se comunica con el cliente.
+ * @param ui_shared Estructura compartida entre procesos
+ */
+void release_resources(mqd_t queue_server, mqd_t queue_client, ui_struct *ui_shared) {
+    /* Liberando recursos */
+    munmap(ui_shared, sizeof(ui_struct));
+    shm_unlink(SHM_NAME);
+
+    /* Destruyendo las colas de mensajes */
+    mq_close(queue_client);
+    mq_close(queue_server);
+    mq_unlink(MQ_NAME_SERVER);
+    mq_unlink(MQ_NAME_CLIENT);
+
+    /* Destruyendo semaforos */
+    sem_destroy(&ui_shared->sem_fill);
+    sem_destroy(&ui_shared->sem_empty);
+    sem_destroy(&ui_shared->sem_mutex);
+}
+
 int main(int argc, char *argv[]) {
     pid_t pid_ui = 0, pid_server = 0, pid_client = 0;
     char input[INPUTMAXSIZE] = "\0";
@@ -57,20 +85,31 @@ int main(int argc, char *argv[]) {
     /* Inicializando semáforos */
     if (sem_init(&ui_shared->sem_fill, 1, 0) == -1) {
         perror("sem_init");
+
         munmap(ui_shared, sizeof(ui_struct));
         shm_unlink(SHM_NAME);
+
         exit(EXIT_FAILURE);
     }
     if (sem_init(&ui_shared->sem_empty, 1, 1) == -1) {
         perror("sem_init");
+
         munmap(ui_shared, sizeof(ui_struct));
         shm_unlink(SHM_NAME);
+
+        sem_destroy(&ui_shared->sem_fill);
+
         exit(EXIT_FAILURE);
     }
     if (sem_init(&ui_shared->sem_mutex, 1, 1) == -1) {
         perror("sem_init");
+
         munmap(ui_shared, sizeof(ui_struct));
         shm_unlink(SHM_NAME);
+
+        sem_destroy(&ui_shared->sem_fill);
+        sem_destroy(&ui_shared->sem_empty);
+
         exit(EXIT_FAILURE);
     }
 
@@ -86,12 +125,31 @@ int main(int argc, char *argv[]) {
     mqd_t queue_server = mq_open(MQ_NAME_SERVER, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR, &attributes);
     if (queue_server == (mqd_t)-1) {
         perror("mq_open");
+
+        munmap(ui_shared, sizeof(ui_struct));
+        shm_unlink(SHM_NAME);
+
+        sem_destroy(&ui_shared->sem_empty);
+        sem_destroy(&ui_shared->sem_fill);
+        sem_destroy(&ui_shared->sem_mutex);
+
         exit(EXIT_FAILURE);
     }
 
     mqd_t queue_client = mq_open(MQ_NAME_CLIENT, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR, &attributes);
     if (queue_client == (mqd_t)-1) {
         perror("mq_open");
+
+        mq_close(queue_server);
+        mq_unlink(MQ_NAME_SERVER);
+
+        munmap(ui_shared, sizeof(ui_struct));
+        shm_unlink(SHM_NAME);
+
+        sem_destroy(&ui_shared->sem_empty);
+        sem_destroy(&ui_shared->sem_fill);
+        sem_destroy(&ui_shared->sem_mutex);
+
         exit(EXIT_FAILURE);
     }
 
@@ -99,29 +157,25 @@ int main(int argc, char *argv[]) {
     pid_server = fork();
     if (pid_server == -1) {
         perror("fork");
-        munmap(ui_shared, sizeof(ui_struct));
-        shm_unlink(SHM_NAME);
+        release_resources(queue_server, queue_client, ui_shared);
         exit(EXIT_FAILURE);
     }
     /* Ejecución del proceso server */
     if (pid_server == 0) {
         if (execl("./stream-server", argv[2], (char*) NULL) == -1) {
             perror("execl");
-            munmap(ui_shared, sizeof(ui_struct));
-            shm_unlink(SHM_NAME);
+            release_resources(queue_server, queue_client, ui_shared);
             exit(EXIT_FAILURE);
         }
     } 
 
+    /* Solo el padre puede encargarse de crear al cliente */
     if (pid_ui == getppid()) {
         /* Creamos el proceso client */
         pid_client = fork();
         if (pid_client == -1) {
             perror("fork");
-            /* Matamos al proceso server */
-            kill(pid_server, SIGKILL);
-            munmap(ui_shared, sizeof(ui_struct));
-            shm_unlink(SHM_NAME);
+            release_resources(queue_server, queue_client, ui_shared);
             exit(EXIT_FAILURE);
         }
     }
@@ -129,23 +183,25 @@ int main(int argc, char *argv[]) {
     if (pid_client == 0) {
         if (execl("./stream-client", argv[1], (char*) NULL) == -1) {
             perror("execl");
-            munmap(ui_shared, sizeof(ui_struct));
-            shm_unlink(SHM_NAME);
+            release_resources(queue_server, queue_client, ui_shared);
             exit(EXIT_FAILURE);
         }
     }
 
     /* Recogemos los comandos */
     while(1) {
+        /* Recogiendo la input de stdin */
         printf(">>> ");
         fgets(input, INPUTMAXSIZE, stdin);
 
+        /* Marcando el final de la string */
         int len = strlen(input);
         if (len == INPUTMAXSIZE)
             input[INPUTMAXSIZE-1] = '\0';
         else
             input[len] = '\0';
         
+        /* Construyendo el mensaje */
         strcpy(msg.message, input);
 
         /* Comando post */
@@ -153,18 +209,7 @@ int main(int argc, char *argv[]) {
             /* Mandando mensaje a el stream-server */
             if(mq_send(queue_server, (const char *)&msg, sizeof(msg), 0) == -1){
                 perror("execl");
-
-                munmap(ui_shared, sizeof(ui_struct));
-                shm_unlink(SHM_NAME);
-                
-                mq_close(queue_client);
-                mq_close(queue_server);
-                mq_unlink(MQ_NAME_SERVER);
-                mq_unlink(MQ_NAME_CLIENT);
-
-                sem_destroy(&ui_shared->sem_fill);
-                sem_destroy(&ui_shared->sem_empty);
-                sem_destroy(&ui_shared->sem_mutex);
+                release_resources(queue_server, queue_client, ui_shared);
                 exit(EXIT_FAILURE);
             }
         } /* Comando get */
@@ -172,17 +217,7 @@ int main(int argc, char *argv[]) {
             /* Mandando mensaje al proceso stream-client */
             if(mq_send(queue_client, (const char *)&msg, sizeof(msg), 0) == -1){
                 perror("execl");
-                munmap(ui_shared, sizeof(ui_struct));
-                shm_unlink(SHM_NAME);
-                
-                mq_close(queue_client);
-                mq_close(queue_server);
-                mq_unlink(MQ_NAME_SERVER);
-                mq_unlink(MQ_NAME_CLIENT);
-
-                sem_destroy(&ui_shared->sem_fill);
-                sem_destroy(&ui_shared->sem_empty);
-                sem_destroy(&ui_shared->sem_mutex);
+                release_resources(queue_server, queue_client, ui_shared);
                 exit(EXIT_FAILURE);
             }
         } else if (strncmp(msg.message, "exit", 4) == 0) {
@@ -190,17 +225,7 @@ int main(int argc, char *argv[]) {
             if(mq_send(queue_client, (const char *)&msg, sizeof(msg), 0) == -1 
             || mq_send(queue_server, (const char *)&msg, sizeof(msg), 0) == -1) {
                 perror("execl");
-                munmap(ui_shared, sizeof(ui_struct));
-                shm_unlink(SHM_NAME);
-                
-                mq_close(queue_client);
-                mq_close(queue_server);
-                mq_unlink(MQ_NAME_SERVER);
-                mq_unlink(MQ_NAME_CLIENT);
-
-                sem_destroy(&ui_shared->sem_fill);
-                sem_destroy(&ui_shared->sem_empty);
-                sem_destroy(&ui_shared->sem_mutex);
+                release_resources(queue_server, queue_client, ui_shared);
                 exit(EXIT_FAILURE);
             }
             break;
@@ -213,20 +238,7 @@ int main(int argc, char *argv[]) {
     waitpid(pid_server, NULL, 0);
     waitpid(pid_client, NULL, 0);
     
-    /* Liberando recursos */
-    munmap(ui_shared, sizeof(ui_struct));
-    shm_unlink(SHM_NAME);
-
-    /* Destruyendo las colas de mensajes */
-    mq_close(queue_client);
-    mq_close(queue_server);
-    mq_unlink(MQ_NAME_SERVER);
-    mq_unlink(MQ_NAME_CLIENT);
-
-    /* Destruyendo semaforos */
-    sem_destroy(&ui_shared->sem_fill);
-    sem_destroy(&ui_shared->sem_empty);
-    sem_destroy(&ui_shared->sem_mutex);
+    release_resources(queue_server, queue_client, ui_shared);
 
     return 0;
 }

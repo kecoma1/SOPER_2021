@@ -1,7 +1,19 @@
+/**
+ * @file stream-server.c
+ * @author Kevin de la Coba Malam
+ *         Marcos Aarón Bernuy
+ * @brief Archivo donde se define el comportamiento del "server".
+ * Aquí se lee un archivo y se escribe el contenido en la memoria 
+ * compartida.
+ * @version 1.0
+ * @date 2021-04-18
+ * 
+ * @copyright Copyright (c) 2021
+ * 
+ */
 #include "ui_struct.h"
 
 int main(int argc, char *argv[]) {
-
     char *filename = argv[0];
     char input = '0';
     ui_struct *ui_shared = NULL;
@@ -14,8 +26,6 @@ int main(int argc, char *argv[]) {
         printf("\nSERVER: Es necesario un fichero de entrada.\n");
         exit(EXIT_FAILURE);
     }
-
-    ts.tv_sec = 2;
 
     /* Abrimos la memoria compartida */
     if ((fd_shm = shm_open(SHM_NAME, O_RDWR, 0)) == -1) {
@@ -51,9 +61,12 @@ int main(int argc, char *argv[]) {
     mqd_t queue = mq_open(MQ_NAME_SERVER, O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR, &attributes);
     if (queue == (mqd_t)-1) {
         perror("SERVER: mq_open");
+        munmap(ui_shared, sizeof(ui_struct));
+        fclose(pf);
         exit(EXIT_FAILURE);
     }
 
+    /* Bucle principal de lectura */
     while(input != '\0'){
         /* Recibimos la instruccion */
         if (mq_receive(queue, (char *)&msg, sizeof(msg), NULL) == -1){
@@ -69,7 +82,7 @@ int main(int argc, char *argv[]) {
             break;
         }
 
-        /* Obteniendof el tiempo actual para el sem_timedwait */
+        /* Obteniendo el tiempo actual para el sem_timedwait */
         if (clock_gettime(CLOCK_REALTIME, &ts) == -1) {
             perror("SERVER: clock_gettime");
             munmap(ui_shared, sizeof(ui_struct));
@@ -77,7 +90,7 @@ int main(int argc, char *argv[]) {
             mq_close(queue);
             exit(EXIT_FAILURE);
         }
-
+        /* 2 segundos desde el momento actual */
         ts.tv_sec += 2;
 
         if (sem_timedwait(&ui_shared->sem_empty, &ts) == -1 && errno == EINTR) {
@@ -89,8 +102,12 @@ int main(int argc, char *argv[]) {
             continue;
         }
         input = fgetc(pf);
-        if (input == EOF)
+
+        /* Final del archivo */
+        if (input == EOF) {
+            printf("SERVER: No hay más que escribir. - ");
             input = '\0';
+        }
 
         ui_shared->buffer[ui_shared->post_pos % BUFFSIZE] = input;
         ui_shared->post_pos++;
@@ -99,9 +116,12 @@ int main(int argc, char *argv[]) {
         sem_post(&ui_shared->sem_fill);
     }
 
+    printf("SERVER: Ejecución finalizada.\n>>> ");
 
     /* Unmapping la memoria compartida */
     munmap(ui_shared, sizeof(ui_struct));
+
+    /* Cerrando el archivo */
     fclose(pf);
 
     /* Cerrando la cola de mensajes */
