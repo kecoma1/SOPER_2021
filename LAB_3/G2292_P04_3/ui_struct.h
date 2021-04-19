@@ -13,20 +13,39 @@
 #ifndef STRUCT_UI_H
 #define STRUCT_UI_H
 
-#include <fcntl.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <wait.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <errno.h>
-#include <signal.h>
-#include <string.h>
+/* Uso de shm */
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <semaphore.h>
+#include <fcntl.h>
+
+/* Uso de cola de mensajes */
 #include <mqueue.h>
+
+/* Uso de fork y execl */
+#include <unistd.h>
+
+/* Manejo de strings */
+#include <string.h>
+
+/* Espera de los procesos */
+#include <wait.h>
+
+/* Uso de señales */
+#include <signal.h>
+
+/* Uso de semáforos */
+#include <semaphore.h>
+
+/* Para recoger el tiempo actual */
 #include <time.h>
+
+/* Manejo de errores */
+#include <errno.h>
+
+/* Uso de funciones básicas */
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
 
 #define INPUTMAXSIZE 128
 #define BUFFSIZE 5
