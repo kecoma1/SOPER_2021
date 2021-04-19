@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
     };
 
     /* Abrimos la cola de mensajes */
-    mqd_t queue = mq_open(MQ_NAME_SERVER, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR, &attributes);
+    mqd_t queue = mq_open(MQ_NAME_SERVER, O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR, &attributes);
     if (queue == (mqd_t)-1) {
         perror("SERVER: mq_open");
         exit(EXIT_FAILURE);
