@@ -16,8 +16,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "miner.h"
 
+#define MAX_MINERS 200
 #define PRIME 99997669
 #define BIG_X 435679812
 #define BIG_Y 100001819
