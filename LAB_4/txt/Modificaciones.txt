@@ -1,3 +1,6 @@
-1. Se ha movido la función: 
-    long int simple_hash(long int number);
-    al módulo trabajador.
+1. Se ha movido la función
+        "long int simple_hash(long int number);"
+al módulo trabajador. trabajador.c
+
+2. Se ha movido la definición de la estructura bloque
+al modulo bloque. bloque.c

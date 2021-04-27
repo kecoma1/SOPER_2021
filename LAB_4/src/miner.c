@@ -1,7 +1,18 @@
+/**
+ * @file miner.c
+ * @author Kevin de la Coba Malam
+ *         Marcos Aarón Bernuy
+ * @brief Archivo donde se define la implementación de los
+ * mineros
+ * @version 0.2 - Implementación bloques.
+ * @date 2021-04-27
+ * 
+ * @copyright Copyright (c) 2021
+ * 
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include "miner.h"
-#include "trabajador.h"
 
 void print_blocks(Block *plast_block, int num_wallets) {
     Block *block = NULL;

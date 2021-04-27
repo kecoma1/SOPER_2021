@@ -2,7 +2,8 @@
  * @file trabajador.c
  * @author Archivo donde se codifica el comportamiento
  * del trbajador.
- * @brief 
+ * @brief Archivo donde se codifican las funciones usadas
+ * para que los trabajadores trabajen.
  * @version 0.1
  * @date 2021-04-27
  * 
