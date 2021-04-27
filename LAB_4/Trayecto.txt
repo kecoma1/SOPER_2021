@@ -1,0 +1,22 @@
+# Camino a seguir
+
+#### Mineros paralelos
+Implementar el uso de hilos en los mineros. Se debe crear un fichero __trabajadores.c__ donde se implementen las tareas de los trabajadores.
+Cuando se llame a un minero, el primer parametro debe ser el número de trabajadores (hilos), para paralelizar lo máximo posible se puede hacer que cada trabajador comienze desde un índice distinto.
+Los trabajadores deben:
+* Mediante el uso de señales, despertar al padre, para que este siga con su ejecución cuando un trabajador termine.
+* Cuando el padre despierte, este modificará una variable global para que los trabajadores (que siempre la comprueban) terminen su ejecución.
+
+#### Construir bloques
+Crear memoria compartida para los bloques. Cuando se termina con un bloque, se crea otro y se encadena. Esto lo hace el minero ganador.
+1º Implementar una version con un unico minero.
+2º Implementar una versión con varios mineros (después de haber implementado la red).
+
+#### Implementar la red
+Lo primero que deben hacer los mineros es comprobar si la región de memoria compartida está creada, si no, la crean. Así, se habra creado la red. Ahora bien estos deben incluirse en esta red, escribiendo su __PID__ en __miners_pid__. Se implementará un semáforo para que se escriba en la memoria compartida de forma ordenada. El último proceso escribira en __last_miner__ el indice donde ha escrito en miners_pid. 
+
+#### SIGUSR2
+Implementar el uso de SIGUSR2. Cuando un minero termine, debe enviar sigusr2 y esperar a la votación. El minero sabe el número de procesos que votarán porque envía SIGUSR1 a todos los mineros, dependiendo de lo que devuelva la función kill, sabrá cuantos votan. Para la votación se usara otro semáforo. Después de SIGUSR1 es cuando envíamos SIGUSR2.
+
+#### IS_VALID
+Si la votación sale bien, el minero ganador escribe en IS_VALID, usando un semaforo.
