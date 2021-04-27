@@ -1,5 +1,10 @@
 #include <unistd.h>
 
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+
 #define OK 0
 #define MAX_WORKERS 10
 
@@ -27,6 +32,5 @@ typedef struct _NetData {
     pid_t last_winner;
 } NetData;
 
-long int simple_hash(long int number);
 
 void print_blocks(Block * plast_block, int num_wallets);
