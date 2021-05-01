@@ -16,13 +16,13 @@
 #include "miner.h"
 
 extern int solution_find;
-char sig_int_recibida = 0;
+short sig_int_recibida = 0;
+short sig_usr2_recibida = 0;
+
 
 /**
- * @brief Manejador de la señal SIGALARM
- * Cuando se recibe la señal alarm, el comportamiento 
- * es el mismo al de la señal sigint, por lo que modificamos
- * el valor de singint
+ * @brief Manejador de la señal SIGINT
+ * 
  * @param sig Señal
  */
 void manejador_SIGINT(int sig) {
@@ -35,47 +35,96 @@ void manejador_SIGINT(int sig) {
     sig_int_recibida = 1;
 }
 
+/**
+ * @brief Manejador de la señal SIGUSR2
+ * 
+ * @param sig Señal
+ */
+void manejador_SIGUSR2(int sig) {
+    
+    /* Para efectuar la votación hacemos que los threads 
+    acaben cuanto antes */
+    solution_find = 1;
+
+    sig_usr2_recibida = 1;
+}
+
+/**
+ * @brief Manejador de la señal SIGUSR1. Vacío.
+ * 
+ * @param sig Señal
+ */
+void manejador_SIGUSR1(int sig) {}
+
 int main(int argc, char *argv[]) {
     long int target = 0;
     int num_workers = 0, i = 0, err = 0, rounds = 0, infinite = 0;
+    int index = 0;
 
     pthread_t threads[MAX_WORKERS];
 
     worker_struct *threads_info = NULL;
     Block *last_block = NULL, *block = NULL;
-    NetData *net = NULL;
+    pid_t pid = 0;
 
     if (argc != 3) {
         fprintf(stderr, "Usage: %s <NUMERO TRABAJADORES> <RONDAS>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
     
+    pid = getpid();
+
     /* Inicializamos una máscara para ignorar SIGINT 
-    hasta que todo este inicializado */
+    /* Las unicas señales que no igoramos on */
     sigset_t mask;
     sigemptyset(&mask);
     sigaddset(&mask, SIGINT);
+
     if (sigprocmask(SIG_BLOCK, &mask, NULL) == -1) {
         perror("sigprocmask");
         exit(EXIT_FAILURE);
     }
 
-    /* Inicializamos sigaction para la señal SIGINT */
-    struct sigaction act_SIGINT;
+    /* Inicializamos las estructuras sigaction */
+    struct sigaction act_SIGINT, act_SIGUSR2, act_SIGUSR1;
     act_SIGINT.sa_handler = manejador_SIGINT;
+    act_SIGUSR2.sa_handler = manejador_SIGUSR2;
+    act_SIGUSR1.sa_handler = manejador_SIGUSR1;
     sigemptyset(&(act_SIGINT.sa_mask));
-    /* Ignoramos la señal SIGUSR2 (ya que el proceso se estará cerrando) */
-    sigaddset(&(act_SIGINT.sa_mask), SIGUSR2);
+    sigemptyset(&(act_SIGUSR1.sa_mask));
+    sigemptyset(&(act_SIGUSR2.sa_mask));
     act_SIGINT.sa_flags = 0;
-    if(sigaction(SIGINT, &act_SIGINT, NULL) < 0) {
+    act_SIGUSR1.sa_flags = 0;
+    act_SIGUSR2.sa_flags = 0;
+
+    // Ignoramos la señal SIGUSR2 (ya que el proceso se estará cerrando)
+    sigaddset(&(act_SIGINT.sa_mask), SIGUSR2);
+
+    /* Establecemos los manejadores */
+    if (sigaction(SIGINT, &act_SIGINT, NULL) < 0) {
+        perror("sigaction");
+        exit(EXIT_FAILURE);
+    }
+    if (sigaction(SIGUSR1, &act_SIGUSR1, NULL) < 0) {
+        perror("sigaction");
+        exit(EXIT_FAILURE);
+    }
+    if (sigaction(SIGUSR2, &act_SIGUSR2, NULL) < 0) {
         perror("sigaction");
         exit(EXIT_FAILURE);
     }
 
     /* Creamos/accedemos a la red */
-    net = create_net();
+    NetData *net = create_net();
     if (net == NULL) {
         fprintf(stderr, "Error al crear/acceder a la red de mineros.");
+        exit(EXIT_FAILURE);
+    }
+    
+    index = net_get_index(net);
+    if (index == -1) {
+        fprintf(stderr, "Error al obtener el indice donde nos encontramos en la red.\n");
+        close_net(net);
         exit(EXIT_FAILURE);
     }
 
@@ -161,7 +210,6 @@ int main(int argc, char *argv[]) {
             threads_info[i].ending_index = (i+1)*(PRIME/num_workers);
             threads_info[i].solution = -1;
             
-
             /* Creando los threads */
             err = pthread_create(&threads[i], NULL, work_thread, (void *)&threads_info[i]);
             if (err != 0) {
@@ -185,33 +233,236 @@ int main(int argc, char *argv[]) {
                 exit(EXIT_FAILURE);
             }
             
-            /* Establecemos la solución */
-            if (threads_info[i].solution != -1) {
-                block->solution  = threads_info[i].solution;
+        }
 
-                /* Actualizamos el valor del target tras haber encontrado la solución */
-                while(sem_wait(&sbi->mutex) == -1) {
-                    if (errno != EINTR) {
-                        perror("sem_wait");
-                        free(threads_info);
-                        close_net(net);
-                        close_shared_block_info(sbi);
-                        exit(EXIT_FAILURE);
-                    }
+        /* Votación */
+        if (sig_usr2_recibida == 1) {
+            while(sem_wait(&net->mutex) == -1) {
+                if (errno != EINTR) {
+                    perror("sem_wait");
+                    free(threads_info);
+                    close_net(net);
+                    close_shared_block_info(sbi);
+                    exit(EXIT_FAILURE);
                 }
-                sbi->target = block->solution;
+            }
+            while(sem_wait(&sbi->mutex) == -1) {
+                if (errno != EINTR) {
+                    perror("sem_wait");
+                    free(threads_info);
+                    close_net(net);
+                    close_shared_block_info(sbi);
+                    exit(EXIT_FAILURE);
+                }
+            }
+
+            /* Cogemos la solución */
+            long int solution = sbi->solution;
+
+            /* Comprobamos la solución y escribimos el resultado */
+            if (simple_hash(solution) == sbi->target) net->voting_pool[index] = 1;
+            else net->voting_pool[index] = 0;
+            net->num_voters += 1;
+            printf("Comparamos la solución %ld==%ld\n", simple_hash(solution), block->target);
+
+            printf("Numero votantes %d\n", net->num_voters);
+
+            /* Si han votado todos, dejamos al ganador hacer el recuento */
+            if (net->num_voters == net->total_miners-1)
+                sem_post(&net->check_voting);
+
+            sem_post(&sbi->mutex);
+            sem_post(&net->mutex);
+
+            sig_usr2_recibida = 0;
+
+            /* Los votantes se bloquean que el recuento se haga */
+            while(sem_wait(&sbi->voters_update_block) == -1) {
+                if (errno != EINTR) {
+                    perror("sem_wait");
+                    free(threads_info);
+                    close_net(net);
+                    close_shared_block_info(sbi);
+                    exit(EXIT_FAILURE);
+                }
+            }
+            while(sem_wait(&sbi->mutex) == -1) {
+                if (errno != EINTR) {
+                    perror("sem_wait");
+                    free(threads_info);
+                    close_net(net);
+                    close_shared_block_info(sbi);
+                    exit(EXIT_FAILURE);
+                }
+            }
+
+            printf("Actualizamos la solución del bloque.\n");
+            if (sbi->is_valid == 1) block->solution = solution;
+
+            sem_post(&sbi->mutex);
+
+            /* Bloqueamos a los votantes hasta que el ganador inicie la nueva ronda */
+            while(sem_wait(&sbi->next_round) == -1) {
+                if (errno != EINTR) {
+                    perror("sem_wait");
+                    free(threads_info);
+                    close_net(net);
+                    close_shared_block_info(sbi);
+                    exit(EXIT_FAILURE);
+                }
+            }
+        } else if (threads_info[i].solution != -1) {
+            while(sem_wait(&net->mutex) == -1) {
+                if (errno != EINTR) {
+                    perror("sem_wait");
+                    free(threads_info);
+                    close_net(net);
+                    close_shared_block_info(sbi);
+                    exit(EXIT_FAILURE);
+                }
+            }
+            while(sem_wait(&sbi->mutex) == -1) {
+                if (errno != EINTR) {
+                    perror("sem_wait");
+                    free(threads_info);
+                    close_net(net);
+                    close_shared_block_info(sbi);
+                    exit(EXIT_FAILURE);
+                }
+            }
+            
+            block->solution  = threads_info[i].solution;
+
+            /* Obtenemos el quorum */
+            int quorum  = get_quorum(net);
+            printf("Obtenemos el quorum: %d\n", quorum); // BORRAR
+            if (quorum == -1) {
+                sem_post(&net->mutex);
                 sem_post(&sbi->mutex);
+                fprintf(stderr, "Error al obtener el quorum en get_quorum");
+                close_net(net);
+                close_shared_block_info(sbi);
+                block_destroy_blockchain(block);
+                free(threads_info);
+            }
+
+            /* Enviamos a todos los mineros sigusr2 */
+            for (int k = 0; k < MAX_MINERS; k++) {
+                if (net->miners_pid[k] != pid && net->miners_pid[k] != -1) {// BORRAR
+                    kill(net->miners_pid[k], SIGUSR2);
+                    printf("Mandamos SIGUSR2 a %d\n", (int)net->miners_pid);// BORRAR
+                }// BORRAR
+            }
+
+            /* Actualizamos el número total de mineros, +1 por el proceso ganador */
+            net->total_miners = quorum+1;
+            printf("total_miners: %d\n", net->total_miners);
+
+            sem_post(&sbi->mutex);
+            sem_post(&net->mutex);
+
+            /* Proceso ganador bloqueado esperando a confirmación */
+            if (quorum >= 1) sem_wait(&net->check_voting);
+            printf("Comprobamos los votos\n");
+
+            while(sem_wait(&net->mutex) == -1) {
+                if (errno != EINTR) {
+                    perror("sem_wait");
+                    free(threads_info);
+                    close_net(net);
+                    close_shared_block_info(sbi);
+                    exit(EXIT_FAILURE);
+                }
+            }
+            while(sem_wait(&sbi->mutex) == -1) {
+                if (errno != EINTR) {
+                    perror("sem_wait");
+                    free(threads_info);
+                    close_net(net);
+                    close_shared_block_info(sbi);
+                    exit(EXIT_FAILURE);
+                }
+            }
+
+            /* Contamos los votos */
+            int yes_votes = 0;
+            for (int k = 0; k < MAX_MINERS; k++)
+                if (net->voting_pool[k] == 1) 
+                    yes_votes += 1;
+
+            printf("Contamos los votos %d / %d quorum\n", yes_votes, quorum); // BORRAR
+
+            /* Si hay mayoría actualizamos el target */
+            if (quorum == 0) {
+                net->last_winner = getpid();
+                sbi->is_valid = 1;
+                sbi->target = block->solution;
+                sbi->solution = block->solution;
+            } else if (yes_votes/quorum > 0.5) {
+                net->last_winner = getpid();
+                sbi->is_valid = 1;
+                sbi->target = block->solution;
+                sbi->solution = block->solution;
+            } else sbi->is_valid = 0;
+            
+            sem_post(&sbi->mutex);
+            sem_post(&net->mutex);
+
+            /* Desbloqueando a los votantes para que actualicen sus bloques */
+            if (quorum >= 1) {
+                for (int k = 0; k < quorum; k++)
+                    sem_post(&sbi->voters_update_block);
+                
+                /* Bloqueamos al proceso ganador hasta que los demas esten listos para empezar */
+                sem_wait(&net->start_next_round); 
+            }
+
+            /* Reseteamos la voting pool y el bloque usadas */
+            while(sem_wait(&net->mutex) == -1) {
+                if (errno != EINTR) {
+                    perror("sem_wait");
+                    free(threads_info);
+                    close_net(net);
+                    close_shared_block_info(sbi);
+                    exit(EXIT_FAILURE);
+                }
+            }
+            while(sem_wait(&sbi->mutex) == -1) {
+                if (errno != EINTR) {
+                    perror("sem_wait");
+                    free(threads_info);
+                    close_net(net);
+                    close_shared_block_info(sbi);
+                    exit(EXIT_FAILURE);
+                }
+            }
+
+            /* Reseteando la voting pool e is_valid */
+            for (int k = 0; k < MAX_MINERS; k++)
+                net->voting_pool[k] = -1;
+            
+            sbi->is_valid = 0;
+
+            printf("Reseteamos valores\n");// BORRAR
+
+            sem_post(&sbi->mutex);
+            sem_post(&net->mutex);
+
+            /* Desbloqueando a los votantes para que actualicen su bloque */
+            if (quorum >= 1) {
+                for (int k = 0; k < quorum; k++)
+                sem_post(&sbi->next_round);
             }
         }
+
+        /* Abandonamos el bucle principal si se ha recibido SIGINT */
+        if (sig_int_recibida == 1) break;
 
         /* No debería ejecutarse nunca */
         if (block->solution == -1) {
             printf("No se ha encontrado la solución.\n");
             break;
         }
-
-        /* Abandonamos el bucle principal si se ha recibido SIGINT */
-        if (sig_int_recibida == 1) break;
 
         last_block = block;
         solution_find = 0;

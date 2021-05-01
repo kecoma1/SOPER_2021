@@ -23,6 +23,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <semaphore.h>
+#include <signal.h>
 
 #define MAX_MINERS 200
 #define SHM_NAME_NET "/netdata"
@@ -32,9 +33,12 @@ typedef struct _NetData {
     char voting_pool[MAX_MINERS];
     int last_miner;
     int total_miners;
+    int num_voters;
     pid_t monitor_pid;
     pid_t last_winner;
     sem_t mutex;
+    sem_t check_voting;
+    sem_t start_next_round;
 } NetData;
 
 /**
@@ -52,6 +56,26 @@ NetData *create_net();
  * @return NetData* Zona de memoria compartida con la Red.
  */
 NetData *link_shared_net();
+
+/**
+ * @brief Función para obtener el Indice donde se almacena nuestro PID.
+ * 
+ * @param nd NetData donde buscar.
+ * @return int Indice.
+ */
+int net_get_index(NetData *nd);
+
+/**
+ * @brief Función para obtener el quorum. Envía 
+ * SIGUSR1 a todos los mineros y comprueba que 
+ * envíos son correctos para determinar el número 
+ * exacto de mineros activos. Se debe haber bajado
+ * el mutex de la red antes de llamar a la función.
+ *
+ * @param nd NetData. 
+ * @return int Número de participantes activos.
+ */
+int get_quorum(NetData *nd);
 
 /**
  * @brief Función que cierra la memoria compartida.

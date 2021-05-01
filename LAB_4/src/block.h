@@ -38,8 +38,12 @@ typedef struct _Block {
 
 typedef struct {
     long int target;
+    long int solution;
+    int is_valid;
     int num_miners;
     sem_t mutex;
+    sem_t next_round;
+    sem_t voters_update_block;
 } shared_block_info;
 
 /**

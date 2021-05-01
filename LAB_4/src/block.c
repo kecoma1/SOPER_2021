@@ -120,8 +120,26 @@ shared_block_info *create_shared_block_info() {
         return NULL;
     }
 
-    /* Inicializamos el semáforo de la memoria compartida */
+    /* Inicializamos los semáforos de la memoria compartida */
     if (sem_init(&sbi->mutex, 1, 1) == -1) {
+        perror("sem_init");
+
+        munmap(sbi, sizeof(shared_block_info));
+        shm_unlink(SHM_NAME_BLOCK);
+
+        return NULL;
+    }
+
+    if (sem_init(&sbi->next_round, 1, 0) == -1) {
+        perror("sem_init");
+
+        munmap(sbi, sizeof(shared_block_info));
+        shm_unlink(SHM_NAME_BLOCK);
+
+        return NULL;
+    }
+
+    if (sem_init(&sbi->voters_update_block, 1, 0) == -1) {
         perror("sem_init");
 
         munmap(sbi, sizeof(shared_block_info));
@@ -202,6 +220,8 @@ int close_shared_block_info(shared_block_info *sbi) {
     /* Si somos el último minero en cerrar la memoria compartida */
     if (bool_last_miner == 1) {
         sem_destroy(&sbi->mutex);
+        sem_destroy(&sbi->next_round);
+        sem_destroy(&sbi->voters_update_block);
         munmap(sbi, sizeof(shared_block_info));
         shm_unlink(SHM_NAME_BLOCK);
     }
