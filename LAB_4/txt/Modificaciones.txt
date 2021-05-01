@@ -4,3 +4,8 @@ al módulo trabajador. trabajador.c
 
 2. Se ha movido la definición de la estructura bloque
 al modulo bloque. bloque.c
+
+Para la comunicacion entre hilos se usa una variable global que se modifica cuando un hilo encuentra la solución. Esta variable se reestablece a 0 desde el proceso minero accediendo a ella con "extern".
+
+Los bloques se han hecho de forma dinámica (aunque no es necesario).
+Se ha creado una nueva estructura en bloque para compartir información como la solución.

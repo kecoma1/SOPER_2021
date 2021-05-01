@@ -93,6 +93,52 @@ void block_destroy_blockchain(Block *block) {
     }
 }
 
+shared_block_info *create_shared_block_info() {
+    shared_block_info *sbi = NULL;
+    
+    /* Creation of the shared memory. */
+    if ((fd_shm = shm_open(SHM_NAME_BLOCK, O_RDWR | O_CREAT | O_EXCL,  S_IRUSR | S_IWUSR)) == -1) {
+        perror("shm_open");
+        return NULL;
+    }
+
+    /* Resize of the memory segment. */
+    if (ftruncate(fd_shm, sizeof(ShmExampleStruct)) == -1) {
+        perror("ftruncate");
+        shm_unlink(SHM_NAME_BLOCK);
+        return NULL;
+    }
+
+    /* Mapping of the memory segment. */
+    sbi = mmap(NULL, sizeof(ShmExampleStruct), PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm, 0);
+    close(fd_shm);
+    if (shm_struct == MAP_FAILED) {
+        perror("mmap");
+        shm_unlink(SHM_NAME_BLOCK);
+        return NULL;
+    }
+
+    return sbi;
+}
+
+shared_block_info *link_shared_block_info() {
+    /* Open of the shared memory. */
+    if ((fd_shm = shm_open(SHM_NAME, O_RDWR, 0)) == -1) {
+        perror("shm_open");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Mapping of the memory segment. */
+    shm_struct = mmap(NULL, sizeof(ShmExampleStruct), PROT_READ, MAP_SHARED, fd_shm, 0);
+    close(fd_shm);
+    if (shm_struct == MAP_FAILED) {
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }
+    return sbi;
+}
+
+
 void print_blocks(Block *plast_block, int num_wallets) {
     Block *block = NULL;
     int i, j;

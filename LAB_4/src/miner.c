@@ -13,6 +13,7 @@
 #include "miner.h"
 
 int main(int argc, char *argv[]) {
+    extern int solution_find;
     long int target = 0;
     int num_workers = 0, i = 0, err = 0, rounds = 0, infinite = 0;
     worker_struct *threads_info = NULL;
@@ -96,6 +97,7 @@ int main(int argc, char *argv[]) {
 
         print_blocks(block, 20);
         last_block = block;
+        solution_find = 0;
     }
 
     /* Liberamos recursos */

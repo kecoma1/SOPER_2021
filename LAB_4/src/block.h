@@ -18,9 +18,8 @@
 #include <stdio.h>
 
 #define MAX_MINERS 200
-#define PRIME 1000
-#define BIG_X 435679812
-#define BIG_Y 100001819
+
+#define SHM_NAME_BLOCK "/block"
 
 typedef struct _Block {
     int wallets[MAX_MINERS];
@@ -31,6 +30,10 @@ typedef struct _Block {
     struct _Block *next;
     struct _Block *prev;
 } Block;
+
+typedef struct {
+    long int solution;
+} shared_block_info;
 
 /**
  * @brief Función para reserver memoria de un bloque.
@@ -62,6 +65,28 @@ void block_destroy(Block *block);
  * @param block Bloque perteneciente a la blockchain.
  */
 void block_destroy_blockchain(Block *block);
+
+/**
+ * @brief Crea memoria compartida para la información del ultimo bloque.
+ * 
+ * @return shared_block_info* Memoria compartida.
+ */
+shared_block_info *create_shared_block_info();
+
+/**
+ * @brief Función que accede a una memoria compartida ya creada.
+ * 
+ * @return shared_block_info* Memoria compartida.
+ */
+shared_block_info *link_shared_block_info();
+
+/**
+ * @brief Función que comprueba
+ * 
+ * @return int 
+ */
+int check_shared_block_info();
+
 
 void print_blocks(Block * plast_block, int num_wallets);
 

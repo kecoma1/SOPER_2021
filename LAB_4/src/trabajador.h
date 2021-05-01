@@ -25,7 +25,7 @@
  * @brief Estructura que recibe el trabajador.
  * La estructura contiene el índice por donde debe empezar a calcular
  * y el indice por donde debe acabar, también contiene el target que buscamos
- * y un id.
+ * y una variable int que emula una variable booleana para ver si la solución ha sido encontrada.
  */
 typedef struct {
     int starting_index;

@@ -12,6 +12,8 @@
  */
 #include "trabajador.h"
 
+int solution_find = 0;
+
 long int simple_hash(long int number) {
     long int result = (number * BIG_X + BIG_Y) % PRIME;
     return result;
@@ -28,14 +30,18 @@ void *work_thread(void *arg) {
 
     /* Buscando el target */
     for (; i < indexes->ending_index; i++) {
-        fprintf(stdout, "Searching... %6.2f%%\r", 100.0 * i / PRIME);
-        if (indexes->target == simple_hash(i)) {
+        if (solution_find == 1) break;
+
+        printf("solution: %d, i = %ld\n", solution_find, i);
+        solution_find++;
+        sleep(1);
+        if (i == 5 || indexes->target == simple_hash(i)) {
             fprintf(stdout, "\nSolution: %ld\n", i);
             indexes->solution =  i;
-            exit(EXIT_SUCCESS);
+            solution_find = 1;
+            return NULL;
         }
     }
 
-    indexes->solution = -1;
     return NULL;
 }
