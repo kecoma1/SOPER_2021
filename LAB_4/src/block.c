@@ -99,43 +99,52 @@ shared_block_info *create_shared_block_info() {
     /* Creation of the shared memory. */
     if ((fd_shm = shm_open(SHM_NAME_BLOCK, O_RDWR | O_CREAT | O_EXCL,  S_IRUSR | S_IWUSR)) == -1) {
         perror("shm_open");
+        /* En el caso de que la memoria compartida exista llama a link */
+        if(errno == EEXIST) return link_shared_block_info();
         return NULL;
     }
 
     /* Resize of the memory segment. */
-    if (ftruncate(fd_shm, sizeof(ShmExampleStruct)) == -1) {
+    if (ftruncate(fd_shm, sizeof(shared_block_info)) == -1) {
         perror("ftruncate");
         shm_unlink(SHM_NAME_BLOCK);
         return NULL;
     }
 
     /* Mapping of the memory segment. */
-    sbi = mmap(NULL, sizeof(ShmExampleStruct), PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm, 0);
+    sbi = mmap(NULL, sizeof(shared_block_info), PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm, 0);
     close(fd_shm);
-    if (shm_struct == MAP_FAILED) {
+    if (sbi == MAP_FAILED) {
         perror("mmap");
         shm_unlink(SHM_NAME_BLOCK);
         return NULL;
     }
+    shm_unlink(SHM_NAME_BLOCK);
 
     return sbi;
 }
 
 shared_block_info *link_shared_block_info() {
+    shared_block_info *sbi = NULL;
+
     /* Open of the shared memory. */
-    if ((fd_shm = shm_open(SHM_NAME, O_RDWR, 0)) == -1) {
+    if ((fd_shm = shm_open(SHM_NAME_BLOCK, O_RDWR, 0)) == -1) {
         perror("shm_open");
-        exit(EXIT_FAILURE);
+        return NULL;
     }
 
     /* Mapping of the memory segment. */
-    shm_struct = mmap(NULL, sizeof(ShmExampleStruct), PROT_READ, MAP_SHARED, fd_shm, 0);
+    sbi = mmap(NULL, sizeof(shared_block_info), PROT_READ, MAP_SHARED, fd_shm, 0);
     close(fd_shm);
-    if (shm_struct == MAP_FAILED) {
+    if (sbi == MAP_FAILED) {
         perror("mmap");
-        exit(EXIT_FAILURE);
+        return NULL;
     }
     return sbi;
+}
+
+int close_shared_block_info(shared_block_info *sbi) {
+    munmap(sbi, sizeof(shared_block_info));
 }
 
 

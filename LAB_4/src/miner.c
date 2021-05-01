@@ -37,6 +37,13 @@ int main(int argc, char *argv[]) {
         infinite = 1;
     }
 
+    /* Creamos/linkeamos la memoria compartida */
+    shared_block_info *sbi = create_shared_block_info();
+    if (sbi == NULL) {
+        fprintf(stderr, "Error al crear/linkear la memoria compartida.\n");
+        exit(EXIT_FAILURE);
+    }
+
     if (num_workers > MAX_WORKERS) {
         fprintf(stderr, "Número incorrecto de trabajadores. Defina un número entre [1-10] (ambos incluidos).\n");
         exit(EXIT_FAILURE);

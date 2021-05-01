@@ -32,6 +32,7 @@ typedef struct _Block {
 } Block;
 
 typedef struct {
+    int fd;
     long int solution;
 } shared_block_info;
 
@@ -81,11 +82,12 @@ shared_block_info *create_shared_block_info();
 shared_block_info *link_shared_block_info();
 
 /**
- * @brief Función que comprueba
+ * @brief Función que cierra la memoria compartida.
  * 
- * @return int 
+ * @param fd Descriptor a cerrar
+ * @return int 0 OK, -1 ERR.
  */
-int check_shared_block_info();
+int close_shared_block_info(shared_block_info *sbi);
 
 
 void print_blocks(Block * plast_block, int num_wallets);
