@@ -31,7 +31,6 @@ typedef struct {
     int starting_index;
     int ending_index;
     long int target;
-    int id;
 } worker_struct;
 
 /**

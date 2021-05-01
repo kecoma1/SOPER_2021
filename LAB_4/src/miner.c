@@ -10,8 +10,6 @@
  * @copyright Copyright (c) 2021
  * 
  */
-#include <stdio.h>
-#include <stdlib.h>
 #include "miner.h"
 
 void print_blocks(Block *plast_block, int num_wallets) {
@@ -30,21 +28,26 @@ void print_blocks(Block *plast_block, int num_wallets) {
 
 int main(int argc, char *argv[]) {
     long int target = 0;
-    int num_workers = 0, i = 0, err = 0;
+    int num_workers = 0, i = 0, err = 0, rounds = 0;
     worker_struct *threads_info = NULL;
     pthread_t threads[MAX_WORKERS];
 
     if (argc != 3) {
-        fprintf(stderr, "Usage: %s <NUMERO TRABAJADORES> <TARGET>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <NUMERO TRABAJADORES> <RONDAS>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
+    /* Generamos un target aleatorio entre 1 - 1.000.000 */
+    srand(time(NULL));
+    target = rand () % (1000000-1+1) + 1;
+    printf("Primer target: %d\n", target);
+
     /* Establecemos un target y el número de trabajadores */
     num_workers = atoi(argv[1]);
-    target = atol(argv[2]);
+    rounds = atol(argv[2]);
 
-    if (num_workers > MAX_WORKERS) {
-        fprintf(stderr, "Demasiados trabajadores. Defina menos de 11.\n");
+    if (num_workers > MAX_WORKERS || num_workers <= 0) {
+        fprintf(stderr, "Número incorrecto de trabajadores. Defina un número entre [1-10] (ambos incluidos).\n");
         exit(EXIT_FAILURE);
     }
 
@@ -55,29 +58,34 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    /* Creando threads */
-    for (i = 0; i < num_workers; i++) {
-        /* Inicializamos las estructuras para los threads */
-        threads_info[i].target = target;
-        threads_info[i].starting_index = i*(PRIME/num_workers);
-        threads_info[i].ending_index = (i+1)*(PRIME/num_workers);
-        threads_info[i].id = i+1;
+    /* Ejecutando las rondas correspondientes */
+    for (int n = 0; n < rounds; n++) {
 
-        err = pthread_create(&threads[i], NULL, work_thread, (void *)&threads_info[i]);
-        if (err != 0) {
-            perror("Error creando threads. pthread_create");
-            free(threads_info);
-            exit(EXIT_FAILURE);
+        /* Creamos el bloque */
+
+        /* Creando threads */
+        for (i = 0; i < num_workers; i++) {
+            /* Inicializamos las estructuras para los threads */
+            threads_info[i].target = target;
+            threads_info[i].starting_index = i*(PRIME/num_workers);
+            threads_info[i].ending_index = (i+1)*(PRIME/num_workers);
+
+            err = pthread_create(&threads[i], NULL, work_thread, (void *)&threads_info[i]);
+            if (err != 0) {
+                perror("Error creando threads. pthread_create");
+                free(threads_info);
+                exit(EXIT_FAILURE);
+            }
         }
-    }
 
-    /* Terminando la ejecución de los threads */
-    for (i = 0; i < num_workers; i++) {
-        err = pthread_join(threads[i], NULL);
-        if (err != 0) {
-            perror("pthread_join");
-            free(threads_info);
-            exit(EXIT_FAILURE);
+        /* Terminando la ejecución de los threads */
+        for (i = 0; i < num_workers; i++) {
+            err = pthread_join(threads[i], NULL);
+            if (err != 0) {
+                perror("pthread_join");
+                free(threads_info);
+                exit(EXIT_FAILURE);
+            }
         }
     }
 

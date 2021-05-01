@@ -15,6 +15,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 
 #include "trabajador.h"
 #include "block.h"
