@@ -16,6 +16,11 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <errno.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <semaphore.h>
 
 #define MAX_MINERS 200
 
@@ -32,8 +37,8 @@ typedef struct _Block {
 } Block;
 
 typedef struct {
-    int fd;
-    long int solution;
+    long int target;
+    sem_t mutex;
 } shared_block_info;
 
 /**

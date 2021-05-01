@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
+#include <semaphore.h>
 
 #include "trabajador.h"
 #include "block.h"

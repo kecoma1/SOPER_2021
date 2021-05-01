@@ -10,3 +10,5 @@ Para la comunicacion entre hilos se usa una variable global que se modifica cuan
 Los bloques se han hecho de forma dinámica (aunque no es necesario).
 Se ha creado una nueva estructura en bloque para compartir información como la solución.
 Esta estructura usa memoria compartida. Para que los procesos accedan de forma correcta, lo que se hace es que si la memoria ya existe, dentro de la función create llamamos a la función link.
+
+Observación: Hemos podido comprobar como el imprimir por pantalla consume una enorme cantidad de recursos. Quitando el printf de "Searching..." hemos podido ver que la ejecución mejora brutalmente.

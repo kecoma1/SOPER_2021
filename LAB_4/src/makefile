@@ -7,10 +7,10 @@ trabajador.o:
 	gcc -g -c trabajador.c
 
 block.o:
-	gcc -g -c block.c
+	gcc -g -c block.c 
 
 exe:
-	gcc -g miner.o trabajador.o block.o -o miner -lpthread
+	gcc -g miner.o trabajador.o block.o -o miner -pthread -lrt
 
 clean:
 	rm -f *.o miner

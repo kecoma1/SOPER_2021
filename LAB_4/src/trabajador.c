@@ -30,13 +30,10 @@ void *work_thread(void *arg) {
 
     /* Buscando el target */
     for (; i < indexes->ending_index; i++) {
-        if (solution_find == 1) break;
+        if (solution_find != 0) break;
 
-        printf("solution: %d, i = %ld\n", solution_find, i);
-        solution_find++;
-        sleep(1);
-        if (i == 5 || indexes->target == simple_hash(i)) {
-            fprintf(stdout, "\nSolution: %ld\n", i);
+        if (indexes->target == simple_hash(i)) {
+            fprintf(stdout, "\nSolution: %ld, at %6.2f%%\n", i, 100.0 * i / PRIME);
             indexes->solution =  i;
             solution_find = 1;
             return NULL;

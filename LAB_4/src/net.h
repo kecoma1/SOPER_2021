@@ -5,7 +5,7 @@
  * @brief Archivo donde se definen los prototipos
  * de las funciones usadas para manejar la memoria
  * compartida (la red).
- * @version 0.1
+ * @version 0.1 - Implementación de la red
  * @date 2021-05-01
  * 
  * @copyright Copyright (c) 2021

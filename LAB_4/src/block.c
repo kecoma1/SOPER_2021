@@ -95,6 +95,7 @@ void block_destroy_blockchain(Block *block) {
 
 shared_block_info *create_shared_block_info() {
     shared_block_info *sbi = NULL;
+    int fd_shm;
     
     /* Creation of the shared memory. */
     if ((fd_shm = shm_open(SHM_NAME_BLOCK, O_RDWR | O_CREAT | O_EXCL,  S_IRUSR | S_IWUSR)) == -1) {
@@ -121,11 +122,22 @@ shared_block_info *create_shared_block_info() {
     }
     shm_unlink(SHM_NAME_BLOCK);
 
+    /* Inicializamos el semáforo de la memoria compartida */
+    if (sem_init(&sbi->mutex, 1, 1) == -1) {
+        perror("sem_init");
+
+        munmap(sbi, sizeof(shared_block_info));
+        shm_unlink(SHM_NAME_BLOCK);
+
+        return NULL;
+    }
+
     return sbi;
 }
 
 shared_block_info *link_shared_block_info() {
     shared_block_info *sbi = NULL;
+    int fd_shm;
 
     /* Open of the shared memory. */
     if ((fd_shm = shm_open(SHM_NAME_BLOCK, O_RDWR, 0)) == -1) {
@@ -144,6 +156,7 @@ shared_block_info *link_shared_block_info() {
 }
 
 int close_shared_block_info(shared_block_info *sbi) {
+    sem_destroy(&sbi->mutex);
     munmap(sbi, sizeof(shared_block_info));
 }
 
