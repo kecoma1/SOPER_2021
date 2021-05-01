@@ -15,8 +15,27 @@
  */
 #include "miner.h"
 
+extern int solution_find;
+char sig_int_recibida = 0;
+
+/**
+ * @brief Manejador de la señal SIGALARM
+ * Cuando se recibe la señal alarm, el comportamiento 
+ * es el mismo al de la señal sigint, por lo que modificamos
+ * el valor de singint
+ * @param sig Señal
+ */
+void manejador_SIGINT(int sig) {
+    printf("Minero %d, abandona la red :-(.\n", (int)getpid());
+    
+    /* Como el proceso se va a cerrar, hacemos que los trabajadores
+    acaben su ejecución cuanto antes */
+    solution_find = 1;
+
+    sig_int_recibida = 1;
+}
+
 int main(int argc, char *argv[]) {
-    extern int solution_find;
     long int target = 0;
     int num_workers = 0, i = 0, err = 0, rounds = 0, infinite = 0;
 
@@ -28,6 +47,28 @@ int main(int argc, char *argv[]) {
 
     if (argc != 3) {
         fprintf(stderr, "Usage: %s <NUMERO TRABAJADORES> <RONDAS>\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+    
+    /* Inicializamos una máscara para ignorar SIGINT 
+    hasta que todo este inicializado */
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGINT);
+    if (sigprocmask(SIG_BLOCK, &mask, NULL) == -1) {
+        perror("sigprocmask");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Inicializamos sigaction para la señal SIGINT */
+    struct sigaction act_SIGINT;
+    act_SIGINT.sa_handler = manejador_SIGINT;
+    sigemptyset(&(act_SIGINT.sa_mask));
+    /* Ignoramos la señal SIGUSR2 (ya que el proceso se estará cerrando) */
+    sigaddset(&(act_SIGINT.sa_mask), SIGUSR2);
+    act_SIGINT.sa_flags = 0;
+    if(sigaction(SIGINT, &act_SIGINT, NULL) < 0) {
+        perror("sigaction");
         exit(EXIT_FAILURE);
     }
 
@@ -72,6 +113,12 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    /* Como ya está todo inicializado volvemos a permitir la señal SIGINT */
+    if (sigprocmask(SIG_UNBLOCK, &mask, NULL) == -1) {
+        perror("sigprocmask");
+        exit(EXIT_FAILURE);
+    }
+
     /* Ejecutando las rondas correspondientes */
     for (int n = 0; n < rounds || infinite == 1; n++) {
 
@@ -103,7 +150,6 @@ int main(int argc, char *argv[]) {
                 exit(EXIT_FAILURE);
             }
         }
-        printf("Target: %ld\n", sbi->target);
         if (sbi->target != block->target) block->target = sbi->target;
         sem_post(&sbi->mutex);
 
@@ -129,6 +175,7 @@ int main(int argc, char *argv[]) {
 
         /* Terminando la ejecución de los threads */
         for (i = 0; i < num_workers; i++) {
+
             err = pthread_join(threads[i], NULL);
             if (err != 0) {
                 perror("pthread_join");
@@ -162,6 +209,9 @@ int main(int argc, char *argv[]) {
             printf("No se ha encontrado la solución.\n");
             break;
         }
+
+        /* Abandonamos el bucle principal si se ha recibido SIGINT */
+        if (sig_int_recibida == 1) break;
 
         last_block = block;
         solution_find = 0;

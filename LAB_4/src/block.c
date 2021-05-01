@@ -181,7 +181,7 @@ shared_block_info *link_shared_block_info() {
 }
 
 int close_shared_block_info(shared_block_info *sbi) {
-    char bool_last_miner = 0;
+    short bool_last_miner = 0;
     if (sbi == NULL) return -1;
 
     /* Inicializamos variables */
@@ -200,7 +200,7 @@ int close_shared_block_info(shared_block_info *sbi) {
     sem_post(&sbi->mutex);
 
     /* Si somos el último minero en cerrar la memoria compartida */
-    if (bool_last_miner == 0) {
+    if (bool_last_miner == 1) {
         sem_destroy(&sbi->mutex);
         munmap(sbi, sizeof(shared_block_info));
         shm_unlink(SHM_NAME_BLOCK);

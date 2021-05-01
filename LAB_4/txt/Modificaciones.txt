@@ -14,3 +14,6 @@ Esta estructura usa memoria compartida. Para que los procesos accedan de forma c
 Observación: Hemos podido comprobar como el imprimir por pantalla consume una enorme cantidad de recursos. Quitando el printf de "Searching..." hemos podido ver que la ejecución mejora brutalmente.
 
 A la net se le ha añadido un semáforo para acceder de manera concurrente.
+
+Se ha creado una máscara para que se ignore la señal SIGINT mientras se cargan todos los recursos, una vez se cargan se elimina la señal.
+Se ha creado un manejador para la señal SIGINT, si se recibe se acelera la ejecución de los hilos poniendo la variable global que marca que se ha encontrado la solucion a 1. De esta forma el hilo terminara lo antes posible. Una vez se ha esperado a todos los threads el programa sale del loop y libera todos los recursos. 

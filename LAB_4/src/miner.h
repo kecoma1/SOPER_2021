@@ -21,6 +21,8 @@
 #include <time.h>
 #include <string.h>
 #include <semaphore.h>
+#include <sys/types.h>
+#include <signal.h>
 
 #include "trabajador.h"
 #include "block.h"

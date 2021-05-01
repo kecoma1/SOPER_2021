@@ -112,9 +112,9 @@ NetData *link_shared_net() {
 }
 
 int close_net(NetData *nd) {
-    if (nd == NULL) return -1;
+    short bool_borrar = 0;
 
-    char bool_borrar = 0;
+    if (nd == NULL) return -1;
 
     /* Inicializamos variables */
     while(sem_wait(&nd->mutex) == -1) {
