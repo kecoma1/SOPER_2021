@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
+#include <string.h>
 
 #include "trabajador.h"
 #include "block.h"
@@ -36,6 +37,3 @@ typedef struct _NetData {
     pid_t monitor_pid;
     pid_t last_winner;
 } NetData;
-
-
-void print_blocks(Block * plast_block, int num_wallets);

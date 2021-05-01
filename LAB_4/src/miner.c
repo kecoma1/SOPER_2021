@@ -12,25 +12,12 @@
  */
 #include "miner.h"
 
-void print_blocks(Block *plast_block, int num_wallets) {
-    Block *block = NULL;
-    int i, j;
-
-    for(i = 0, block = plast_block; block != NULL; block = block->prev, i++) {
-        printf("Block number: %d; Target: %ld;    Solution: %ld\n", block->id, block->target, block->solution);
-        for(j = 0; j < num_wallets; j++) {
-            printf("%d: %d;         ", j, block->wallets[j]);
-        }
-        printf("\n\n\n");
-    }
-    printf("A total of %d blocks were printed\n", i);
-}
-
 int main(int argc, char *argv[]) {
     long int target = 0;
-    int num_workers = 0, i = 0, err = 0, rounds = 0;
+    int num_workers = 0, i = 0, err = 0, rounds = 0, infinite = 0;
     worker_struct *threads_info = NULL;
     pthread_t threads[MAX_WORKERS];
+    Block *last_block = NULL;
 
     if (argc != 3) {
         fprintf(stderr, "Usage: %s <NUMERO TRABAJADORES> <RONDAS>\n", argv[0]);
@@ -39,14 +26,17 @@ int main(int argc, char *argv[]) {
 
     /* Generamos un target aleatorio entre 1 - 1.000.000 */
     srand(time(NULL));
-    target = rand () % (1000000-1+1) + 1;
-    printf("Primer target: %d\n", target);
 
     /* Establecemos un target y el número de trabajadores */
     num_workers = atoi(argv[1]);
     rounds = atol(argv[2]);
 
-    if (num_workers > MAX_WORKERS || num_workers <= 0) {
+    /* En caso de que el número de rondas sea infinito */
+    if (rounds <= 0) {
+        infinite = 1;
+    }
+
+    if (num_workers > MAX_WORKERS) {
         fprintf(stderr, "Número incorrecto de trabajadores. Defina un número entre [1-10] (ambos incluidos).\n");
         exit(EXIT_FAILURE);
     }
@@ -59,14 +49,26 @@ int main(int argc, char *argv[]) {
     }
 
     /* Ejecutando las rondas correspondientes */
-    for (int n = 0; n < rounds; n++) {
+    for (int n = 0; n < rounds || infinite == 1; n++) {
 
         /* Creamos el bloque */
+        Block *block = block_ini();
+        if (block == NULL) {
+            fprintf(stderr, "Error creando el bloque. block_ini.\n");
+            free(threads_info);
+            exit(EXIT_FAILURE);
+        }
+
+        if (block_set(last_block, block) == -1) {
+            fprintf(stderr, "Error inicializando el bloque. block_set.\n");
+            free(threads_info);
+            exit(EXIT_FAILURE);
+        }
 
         /* Creando threads */
         for (i = 0; i < num_workers; i++) {
             /* Inicializamos las estructuras para los threads */
-            threads_info[i].target = target;
+            threads_info[i].target = block->target;
             threads_info[i].starting_index = i*(PRIME/num_workers);
             threads_info[i].ending_index = (i+1)*(PRIME/num_workers);
 
@@ -86,7 +88,14 @@ int main(int argc, char *argv[]) {
                 free(threads_info);
                 exit(EXIT_FAILURE);
             }
+            
+            /* Establecemos la solución */
+            if (threads_info[i].solution != -1)
+                block->solution  = threads_info[i].solution;
         }
+
+        print_blocks(block, 20);
+        last_block = block;
     }
 
     /* Liberamos recursos */

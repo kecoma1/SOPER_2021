@@ -10,8 +10,11 @@ block.o:
 	gcc -g -c block.c
 
 exe:
-	gcc -g miner.o trabajador.o -o miner -lpthread
+	gcc -g miner.o trabajador.o block.o -o miner -lpthread
 
 clean:
 	rm -f *.o miner
+
+valgrind:
+	valgrind --leak-check=full ./miner 10 3
 

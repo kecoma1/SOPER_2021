@@ -18,7 +18,7 @@
 #include <stdio.h>
 
 #define MAX_MINERS 200
-#define PRIME 99997669
+#define PRIME 1000
 #define BIG_X 435679812
 #define BIG_Y 100001819
 
@@ -62,5 +62,7 @@ void block_destroy(Block *block);
  * @param block Bloque perteneciente a la blockchain.
  */
 void block_destroy_blockchain(Block *block);
+
+void print_blocks(Block * plast_block, int num_wallets);
 
 #endif

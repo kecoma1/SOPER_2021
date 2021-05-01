@@ -28,12 +28,14 @@ void *work_thread(void *arg) {
 
     /* Buscando el target */
     for (; i < indexes->ending_index; i++) {
-        fprintf(stdout, "Trabajador %d. Searching... %6.2f%%\r", indexes->id, 100.0 * i / PRIME);
+        fprintf(stdout, "Searching... %6.2f%%\r", 100.0 * i / PRIME);
         if (indexes->target == simple_hash(i)) {
             fprintf(stdout, "\nSolution: %ld\n", i);
+            indexes->solution =  i;
             exit(EXIT_SUCCESS);
         }
     }
 
+    indexes->solution = -1;
     return NULL;
 }

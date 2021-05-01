@@ -39,13 +39,13 @@ int block_set(Block *prev, Block *block) {
     }
 
     /* Inicializamos los datos necesarios */
-    block->id = last_block->id + 1;
+    if (last_block != NULL) block->id = last_block->id + 1;
     block->next = NULL;
     block->prev = last_block;
 
     /* Si somos el primer bloque no hay anterior */
     if (last_block != NULL) block->target = last_block->solution;
-    else block->target = 1; // TODO RANDOM NUM
+    else block->target = rand () % (1000000-1+1) + 1; // TODO RANDOM NUM
 
     block->solution = -1;
     //block->is_valid = -1;
@@ -61,7 +61,7 @@ int block_set(Block *prev, Block *block) {
             block->wallets[i] = 0;
     }
     
-    last_block->next = block;
+    if (last_block != NULL) last_block->next = block;
 
     return 0;
 }
@@ -91,4 +91,18 @@ void block_destroy_blockchain(Block *block) {
         block_destroy(last_block);
         last_block = aux;
     }
+}
+
+void print_blocks(Block *plast_block, int num_wallets) {
+    Block *block = NULL;
+    int i, j;
+
+    for(i = 0, block = plast_block; block != NULL; block = block->prev, i++) {
+        printf("Block number: %d; Target: %ld;    Solution: %ld\n", block->id, block->target, block->solution);
+        for(j = 0; j < num_wallets; j++) {
+            printf("%d: %d;         ", j, block->wallets[j]);
+        }
+        printf("\n\n\n");
+    }
+    printf("A total of %d blocks were printed\n", i);
 }
