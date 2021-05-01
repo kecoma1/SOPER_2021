@@ -45,7 +45,7 @@ int block_set(Block *prev, Block *block) {
 
     /* Si somos el primer bloque no hay anterior */
     if (last_block != NULL) block->target = last_block->solution;
-    else block->target = rand () % (1000000-1+1) + 1; // TODO RANDOM NUM
+    else block->target = -1;
 
     block->solution = -1;
     //block->is_valid = -1;
@@ -75,22 +75,21 @@ void block_destroy(Block *block) {
 }
 
 void block_destroy_blockchain(Block *block) {
-    Block *aux, *last_block;
+    Block *aux = NULL, *last_block = NULL;
     if (block == NULL)
         return;
     
     /* Vamos al último bloque de la blockchain */
     last_block = block;
-    while (last_block->next != NULL) {
+    while (last_block->next != NULL)
         last_block = last_block->next;
-    }
 
     /* Borramos la blockchain desde el final */
-    while (aux != NULL) {
+    do {
         aux = last_block->prev;
         block_destroy(last_block);
         last_block = aux;
-    }
+    } while (aux != NULL);
 }
 
 shared_block_info *create_shared_block_info() {
@@ -99,9 +98,9 @@ shared_block_info *create_shared_block_info() {
     
     /* Creation of the shared memory. */
     if ((fd_shm = shm_open(SHM_NAME_BLOCK, O_RDWR | O_CREAT | O_EXCL,  S_IRUSR | S_IWUSR)) == -1) {
-        perror("shm_open");
         /* En el caso de que la memoria compartida exista llama a link */
         if(errno == EEXIST) return link_shared_block_info();
+        perror("shm_open");
         return NULL;
     }
 
@@ -120,7 +119,6 @@ shared_block_info *create_shared_block_info() {
         shm_unlink(SHM_NAME_BLOCK);
         return NULL;
     }
-    shm_unlink(SHM_NAME_BLOCK);
 
     /* Inicializamos el semáforo de la memoria compartida */
     if (sem_init(&sbi->mutex, 1, 1) == -1) {
@@ -131,6 +129,21 @@ shared_block_info *create_shared_block_info() {
 
         return NULL;
     }
+
+    /* Inicializamos variables */
+    while(sem_wait(&sbi->mutex) == -1) {
+        if (errno != EINTR) {
+            perror("sem_wait");
+            close_shared_block_info(sbi);
+            return NULL;
+        }
+    }
+    sbi->num_miners = 1;
+
+    /* Inicializamos el target a un número aleatorio */
+    sbi->target = rand () % (1000000-1+1) + 1;
+
+    sem_post(&sbi->mutex);
 
     return sbi;
 }
@@ -146,18 +159,54 @@ shared_block_info *link_shared_block_info() {
     }
 
     /* Mapping of the memory segment. */
-    sbi = mmap(NULL, sizeof(shared_block_info), PROT_READ, MAP_SHARED, fd_shm, 0);
+    sbi = mmap(NULL, sizeof(shared_block_info), PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm, 0);
     close(fd_shm);
     if (sbi == MAP_FAILED) {
         perror("mmap");
         return NULL;
     }
+
+    /* Inicializamos variables */
+    while(sem_wait(&sbi->mutex) == -1) {
+        if (errno != EINTR) {
+            perror("sem_wait");
+            close_shared_block_info(sbi);
+            return NULL;
+        }
+    }
+    sbi->num_miners += 1;
+    sem_post(&sbi->mutex);
+
     return sbi;
 }
 
 int close_shared_block_info(shared_block_info *sbi) {
-    sem_destroy(&sbi->mutex);
-    munmap(sbi, sizeof(shared_block_info));
+    char bool_last_miner = 0;
+    if (sbi == NULL) return -1;
+
+    /* Inicializamos variables */
+    while(sem_wait(&sbi->mutex) == -1) {
+        if (errno != EINTR) {
+            perror("sem_wait");
+            close_shared_block_info(sbi);
+            return -1;
+        }
+    }
+    sbi->num_miners -= 1;
+
+    if (sbi->num_miners == 0)
+        bool_last_miner = 1;
+
+    sem_post(&sbi->mutex);
+
+    /* Si somos el último minero en cerrar la memoria compartida */
+    if (bool_last_miner == 0) {
+        sem_destroy(&sbi->mutex);
+        munmap(sbi, sizeof(shared_block_info));
+        shm_unlink(SHM_NAME_BLOCK);
+    }
+
+    return 0;
 }
 
 

@@ -1,4 +1,4 @@
-all: clean miner.o trabajador.o block.o exe
+all: clean miner.o trabajador.o block.o net.o exe
 
 miner.o:
 	gcc -g -c miner.c -lpthread
@@ -9,12 +9,15 @@ trabajador.o:
 block.o:
 	gcc -g -c block.c 
 
+net.o:
+	gcc -g -c net.c
+
 exe:
-	gcc -g miner.o trabajador.o block.o -o miner -pthread -lrt
+	gcc -g miner.o trabajador.o block.o net.o -o miner -lpthread -lrt
 
 clean:
 	rm -f *.o miner
 
 valgrind:
-	valgrind --leak-check=full ./miner 10 3
+	valgrind --leak-check=full --show-leak-kinds=all ./miner 10 3
 

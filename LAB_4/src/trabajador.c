@@ -4,7 +4,9 @@
  * del trbajador.
  * @brief Archivo donde se codifican las funciones usadas
  * para que los trabajadores trabajen.
- * @version 0.1
+ * @version 0.1 - Minero paralelo.
+ *          0.2 - Implementación bloques.
+ *          0.3 - Memoria compartida bloques.
  * @date 2021-04-27
  * 
  * @copyright Copyright (c) 2021

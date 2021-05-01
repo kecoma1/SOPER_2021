@@ -38,6 +38,7 @@ typedef struct _Block {
 
 typedef struct {
     long int target;
+    int num_miners;
     sem_t mutex;
 } shared_block_info;
 

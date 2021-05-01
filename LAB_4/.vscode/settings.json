@@ -1,5 +1,7 @@
 {
     "files.associations": {
-        "trabajador.h": "c"
+        "trabajador.h": "c",
+        "miner.h": "c",
+        "netfwd": "c"
     }
 }

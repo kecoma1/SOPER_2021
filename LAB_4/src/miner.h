@@ -4,7 +4,10 @@
  *          Marcos Aarón Bernuy
  * @brief Archivo donde se definen los prototipos de
  * las funciones usadas por los mineros
- * @version 0.2 - Implementación bloques
+ * @version 0.1 - Minero paralelo.
+ *          0.2 - Implementación bloques.
+ *          0.3 - Memoria compartida bloques.
+ *          0.4 - Red de mineros.
  * @date 2021-04-27
  * 
  * @copyright Copyright (c) 2021
@@ -21,10 +24,8 @@
 
 #include "trabajador.h"
 #include "block.h"
+#include "net.h"
 
 #define OK 0
 #define MAX_WORKERS 10
-
-#define SHM_NAME_NET "/netdata"
-
 #define MAX_MINERS 200
