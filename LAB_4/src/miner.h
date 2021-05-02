@@ -33,3 +33,12 @@
 #define OK 0
 #define MAX_WORKERS 10
 #define MAX_MINERS 200
+
+typedef struct {
+    NetData *nd;
+    shared_block_info *sbi;
+    Sems *sems;
+    worker_struct *threads_info;
+    Block *block;
+    sem_t mutex;
+} Miner_data;

@@ -82,7 +82,13 @@ NetData *link_shared_net() {
     } else {
         pid_t pid = getpid(); 
         nd->last_miner = pid;
-        nd->miners_pid[nd->total_miners] = getpid();
+        /* Buscamos el primer hueco libre */
+        for (int i = 0; i < MAX_MINERS; i++) {
+            if (nd->miners_pid[i] == -1) {
+                nd->miners_pid[i] = pid;
+                break;
+            }
+        }
         nd->total_miners += 1;
         return nd;
     }
@@ -149,6 +155,9 @@ void close_net(NetData *nd) {
 
     nd->total_miners -= 1;
     if (nd->total_miners == 0) bool_borrar = 1;
+
+    int index = net_get_index(nd);
+    nd->miners_pid[index] = -1;
 
     /* En caso de que seamos los últimos en abandonar la red la destruimos */
     if (bool_borrar == 1) shm_unlink(SHM_NAME_NET);

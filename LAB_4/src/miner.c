@@ -19,6 +19,7 @@
 extern int solution_find;
 short sig_int_recibida = 0;
 short sig_usr2_recibida = 0;
+Miner_data m_data;
 
 
 /**
@@ -57,6 +58,20 @@ void manejador_SIGUSR2(int sig) {
  */
 void manejador_SIGUSR1(int sig) {}
 
+void manejador_SIGALRM(int sig) {
+    sem_down(&m_data.mutex);
+
+    close_net(m_data.nd);
+    close_shared_block_info(m_data.sbi);
+    close_sems(m_data.sems);
+    block_destroy_blockchain(m_data.block);
+    free(m_data.threads_info);
+    
+    sem_up(&m_data.mutex);
+
+    exit(EXIT_FAILURE);
+}
+
 int main(int argc, char *argv[]) {
     long int target = 0;
     int num_workers = 0, i = 0, err = 0, rounds = 0, infinite = 0;
@@ -85,7 +100,8 @@ int main(int argc, char *argv[]) {
     sigaddset(&mask, SIGINT);
     sigdelset(&wait_for_winner, SIGINT);
     sigdelset(&wait_for_winner, SIGUSR2);
-    sigdelset(&ignore_all, SIGINT);
+    sigdelset(&wait_for_winner, SIGALRM);
+    sigdelset(&ignore_all, SIGALRM);
 
     if (sigprocmask(SIG_BLOCK, &mask, NULL) == -1) {
         perror("sigprocmask");
@@ -93,16 +109,19 @@ int main(int argc, char *argv[]) {
     }
 
     /* Inicializamos las estructuras sigaction */
-    struct sigaction act_SIGINT, act_SIGUSR2, act_SIGUSR1;
+    struct sigaction act_SIGINT, act_SIGUSR2, act_SIGUSR1, act_SIGALRM;
     act_SIGINT.sa_handler = manejador_SIGINT;
     act_SIGUSR2.sa_handler = manejador_SIGUSR2;
     act_SIGUSR1.sa_handler = manejador_SIGUSR1;
+    act_SIGALRM.sa_handler = manejador_SIGALRM;
     sigemptyset(&(act_SIGINT.sa_mask));
     sigemptyset(&(act_SIGUSR1.sa_mask));
     sigemptyset(&(act_SIGUSR2.sa_mask));
+    sigemptyset(&(act_SIGALRM.sa_mask));
     act_SIGINT.sa_flags = 0;
     act_SIGUSR1.sa_flags = 0;
     act_SIGUSR2.sa_flags = 0;
+    act_SIGALRM.sa_flags = 0;
 
     // Ignoramos la señal SIGUSR2 (ya que el proceso se estará cerrando)
     sigaddset(&(act_SIGINT.sa_mask), SIGUSR2);
@@ -117,6 +136,10 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
     if (sigaction(SIGUSR2, &act_SIGUSR2, NULL) < 0) {
+        perror("sigaction");
+        exit(EXIT_FAILURE);
+    }
+    if (sigaction(SIGALRM, &act_SIGALRM, NULL) < 0) {
         perror("sigaction");
         exit(EXIT_FAILURE);
     }
@@ -205,6 +228,28 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    /* Inicializamos la estructura del minero */
+    m_data.nd = net;
+    m_data.sbi = sbi;
+    m_data.sems = sems;
+    m_data.threads_info = threads_info;
+    if (sem_init(&m_data.mutex, 1, 1) == -1) {
+        perror("sem_init");
+        free(threads_info);
+
+        sem_down(&sems->net_mutex);
+        close_net(net);
+        sem_up(&sems->net_mutex);
+
+        sem_down(&sems->block_mutex);
+        close_shared_block_info(sbi);
+        sem_up(&sems->block_mutex);
+
+        close_sems(sems);
+
+        exit(EXIT_FAILURE);
+    }
+
     /* Como ya está todo inicializado volvemos a permitir la señal SIGINT */
     if(sigprocmask(SIG_UNBLOCK, &mask, NULL) == -1) {
         perror("sigprocmask");
@@ -242,6 +287,9 @@ int main(int argc, char *argv[]) {
 
     /* Ejecutando las rondas correspondientes */
     for (int n = 0; n < rounds || infinite == 1; n++) {
+
+        /* Si la tarea no se completa en 5 segundos salimos */
+        alarm(5);
 
         /* Creamos el bloque */
         block = block_ini();
@@ -572,6 +620,7 @@ int main(int argc, char *argv[]) {
         }
 
         last_block = block;
+        m_data.block = block;
         solution_find = 0;
     }
 
@@ -588,6 +637,7 @@ int main(int argc, char *argv[]) {
 
     block_destroy_blockchain(block);
     free(threads_info);
+    threads_info = NULL;
 
     exit(EXIT_FAILURE);
 }
