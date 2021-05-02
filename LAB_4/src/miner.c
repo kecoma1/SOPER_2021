@@ -85,6 +85,7 @@ int main(int argc, char *argv[]) {
     sigaddset(&mask, SIGINT);
     sigdelset(&wait_for_winner, SIGINT);
     sigdelset(&wait_for_winner, SIGUSR2);
+    sigdelset(&ignore_all, SIGINT);
 
     if (sigprocmask(SIG_BLOCK, &mask, NULL) == -1) {
         perror("sigprocmask");
@@ -352,10 +353,18 @@ int main(int argc, char *argv[]) {
         sem_up(&sems->block_mutex);
 
         /* Se ha encontrado una solución, suspendemos al proceso hasta que reciba */
-        if (is_founded == 1 && sig_usr2_recibida == 0 && sig_int_recibida == 0) sigsuspend(&wait_for_winner);
+        sem_down(&sems->net_mutex);
+        int active = get_quorum(net);
+        sem_up(&sems->net_mutex);
+
+        if (is_founded == 1 && sig_usr2_recibida == 0 && sig_int_recibida == 0 && active > 0) sigsuspend(&wait_for_winner);
 
         /* Abandonamos el bucle principal si se ha recibido SIGINT */
-        if (sig_int_recibida == 1) break;
+        if (sig_int_recibida == 1) {
+            sem_up(&sems->count_votes);
+            sem_up(&sems->update_target);
+            break;
+        }
         else if (sig_usr2_recibida == 1) { /* Votación */
             int quorum = get_quorum(net);
             sig_usr2_recibida = 0;
