@@ -41,9 +41,7 @@ typedef struct {
     long int solution;
     int is_valid;
     int num_miners;
-    sem_t mutex;
-    sem_t next_round;
-    sem_t voters_update_block;
+    int wallets[MAX_MINERS];
 } shared_block_info;
 
 /**
@@ -95,10 +93,18 @@ shared_block_info *link_shared_block_info();
  * @brief Función que cierra la memoria compartida.
  * 
  * @param fd Descriptor a cerrar
- * @return int 0 OK, -1 ERR.
  */
-int close_shared_block_info(shared_block_info *sbi);
+void close_shared_block_info(shared_block_info *sbi);
 
+/**
+ * @brief Función para actualizar un bloque local obteniendo
+ * los datos de la memoria compartida.
+ * 
+ * @param sbi Memoria compartida.
+ * @param block Bloque local.
+ * @return short 0 OK, -1 ERR.
+ */
+short update_block(shared_block_info *sbi, Block *block);
 
 void print_blocks(Block * plast_block, int num_wallets);
 

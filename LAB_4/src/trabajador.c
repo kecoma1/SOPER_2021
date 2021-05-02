@@ -35,7 +35,6 @@ void *work_thread(void *arg) {
         if (solution_find != 0) break;
 
         if (indexes->target == simple_hash(i)) {
-            fprintf(stdout, "\nSolution: %ld, at %6.2f%%\n", i, 100.0 * i / PRIME);
             indexes->solution =  i;
             solution_find = 1;
             return NULL;

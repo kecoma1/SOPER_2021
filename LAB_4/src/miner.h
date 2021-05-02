@@ -8,6 +8,7 @@
  *          0.2 - Implementación bloques.
  *          0.3 - Memoria compartida bloques.
  *          0.4 - Red de mineros.
+ *          0.5 - Votación y concurrencia.
  * @date 2021-04-27
  * 
  * @copyright Copyright (c) 2021
@@ -27,6 +28,7 @@
 #include "trabajador.h"
 #include "block.h"
 #include "net.h"
+#include "sems.h"
 
 #define OK 0
 #define MAX_WORKERS 10

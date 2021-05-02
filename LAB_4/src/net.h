@@ -6,6 +6,7 @@
  * de las funciones usadas para manejar la memoria
  * compartida (la red).
  * @version 0.1 - Implementación de la red
+ *          0.2 - Votación y concurrencia.
  * @date 2021-05-01
  * 
  * @copyright Copyright (c) 2021
@@ -33,12 +34,8 @@ typedef struct _NetData {
     char voting_pool[MAX_MINERS];
     int last_miner;
     int total_miners;
-    int num_voters;
     pid_t monitor_pid;
     pid_t last_winner;
-    sem_t mutex;
-    sem_t check_voting;
-    sem_t start_next_round;
 } NetData;
 
 /**
@@ -78,11 +75,27 @@ int net_get_index(NetData *nd);
 int get_quorum(NetData *nd);
 
 /**
+ * @brief Función pensada para que el ganador
+ * envíe a todos los participantes de la red, la
+ * señal SIGUSR2.
+ * 
+ * @param nd Red.
+ */
+void send_SIGUSR2(NetData *nd);
+
+/**
+ * @brief Función para contar los votos efectuados.
+ * 
+ * @param nd Red.
+ * @return int Número de votos.
+ */
+int count_votes(NetData *nd);
+
+/**
  * @brief Función que cierra la memoria compartida.
  * 
  * @param nd Memoria que cerrar.
- * @return int 0 OK, 1 ERR
  */
-int close_net(NetData *nd);
+void close_net(NetData *nd);
 
 #endif

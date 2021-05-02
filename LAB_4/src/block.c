@@ -120,48 +120,13 @@ shared_block_info *create_shared_block_info() {
         return NULL;
     }
 
-    /* Inicializamos los semáforos de la memoria compartida */
-    if (sem_init(&sbi->mutex, 1, 1) == -1) {
-        perror("sem_init");
-
-        munmap(sbi, sizeof(shared_block_info));
-        shm_unlink(SHM_NAME_BLOCK);
-
-        return NULL;
-    }
-
-    if (sem_init(&sbi->next_round, 1, 0) == -1) {
-        perror("sem_init");
-
-        munmap(sbi, sizeof(shared_block_info));
-        shm_unlink(SHM_NAME_BLOCK);
-
-        return NULL;
-    }
-
-    if (sem_init(&sbi->voters_update_block, 1, 0) == -1) {
-        perror("sem_init");
-
-        munmap(sbi, sizeof(shared_block_info));
-        shm_unlink(SHM_NAME_BLOCK);
-
-        return NULL;
-    }
-
-    /* Inicializamos variables */
-    while(sem_wait(&sbi->mutex) == -1) {
-        if (errno != EINTR) {
-            perror("sem_wait");
-            close_shared_block_info(sbi);
-            return NULL;
-        }
-    }
+    for (int i = 0; i < MAX_MINERS; i++) sbi->wallets[i] = 0;
     sbi->num_miners = 1;
+    sbi->solution = -1;
+    sbi->is_valid = -1;
 
     /* Inicializamos el target a un número aleatorio */
     sbi->target = rand () % (1000000-1+1) + 1;
-
-    sem_post(&sbi->mutex);
 
     return sbi;
 }
@@ -184,47 +149,34 @@ shared_block_info *link_shared_block_info() {
         return NULL;
     }
 
-    /* Inicializamos variables */
-    while(sem_wait(&sbi->mutex) == -1) {
-        if (errno != EINTR) {
-            perror("sem_wait");
-            close_shared_block_info(sbi);
-            return NULL;
-        }
-    }
     sbi->num_miners += 1;
-    sem_post(&sbi->mutex);
 
     return sbi;
 }
 
-int close_shared_block_info(shared_block_info *sbi) {
+void close_shared_block_info(shared_block_info *sbi) {
     short bool_last_miner = 0;
-    if (sbi == NULL) return -1;
+    if (sbi == NULL) return;
 
-    /* Inicializamos variables */
-    while(sem_wait(&sbi->mutex) == -1) {
-        if (errno != EINTR) {
-            perror("sem_wait");
-            close_shared_block_info(sbi);
-            return -1;
-        }
-    }
     sbi->num_miners -= 1;
 
     if (sbi->num_miners == 0)
         bool_last_miner = 1;
 
-    sem_post(&sbi->mutex);
+    munmap(sbi, sizeof(shared_block_info));
 
     /* Si somos el último minero en cerrar la memoria compartida */
-    if (bool_last_miner == 1) {
-        sem_destroy(&sbi->mutex);
-        sem_destroy(&sbi->next_round);
-        sem_destroy(&sbi->voters_update_block);
-        munmap(sbi, sizeof(shared_block_info));
-        shm_unlink(SHM_NAME_BLOCK);
-    }
+    if (bool_last_miner == 1) shm_unlink(SHM_NAME_BLOCK);
+}
+
+short update_block(shared_block_info *sbi, Block *block) {
+
+    if (sbi == NULL || block == NULL) return -1;
+
+    block->is_valid = sbi->is_valid;
+    block->solution = sbi->solution;
+    block->target = sbi->target;
+    for (int i = 0; i < MAX_MINERS; i++) block->wallets[i] = sbi->wallets[i];
 
     return 0;
 }
