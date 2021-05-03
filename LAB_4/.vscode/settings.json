@@ -2,6 +2,7 @@
     "files.associations": {
         "trabajador.h": "c",
         "miner.h": "c",
-        "netfwd": "c"
+        "netfwd": "c",
+        "monitor.h": "c"
     }
 }

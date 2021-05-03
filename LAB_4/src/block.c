@@ -40,6 +40,7 @@ int block_set(Block *prev, Block *block) {
 
     /* Inicializamos los datos necesarios */
     if (last_block != NULL) block->id = last_block->id + 1;
+    else block->id = 0;
     block->next = NULL;
     block->prev = last_block;
 
@@ -62,6 +63,20 @@ int block_set(Block *prev, Block *block) {
     }
     
     if (last_block != NULL) last_block->next = block;
+
+    return 0;
+}
+
+int block_copy(Block *src, Block *dest) {
+    if (src == NULL || dest == NULL) return -1;
+
+    dest->id = src->id;
+    dest->is_valid = src->is_valid;
+    dest->next = src->next;
+    dest->prev = src->prev;
+    dest->solution = src->solution;
+    dest->target = src->target;
+    for (int i = 0; i < MAX_MINERS; i++) dest->wallets[i] = src->wallets[i];
 
     return 0;
 }

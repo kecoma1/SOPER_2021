@@ -62,6 +62,15 @@ Block *block_ini();
 int block_set(Block *prev, Block *block);
 
 /**
+ * @brief Función para copiar la información de un bloque en otro.
+ * 
+ * @param src Bloque del que copiar.
+ * @param dest Bloque al que copiar.
+ * @return int 0 OK, -1 ERR.
+ */
+int block_copy(Block *src, Block *dest);
+
+/**
  * @brief Función para destruir un bloque.
  * 
  * @param block Bloque a destruir.
