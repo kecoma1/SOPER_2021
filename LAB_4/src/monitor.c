@@ -56,9 +56,11 @@ int main() {
     }
 
     act_SIGINT.sa_handler = manejador_SIGINT;
+    act_SIGALRM.sa_handler = manejador_SIGALRM;
 
-    /* Establecemos el manejador */
-    if (sigaction(SIGINT, &act_SIGINT, NULL) < 0) {
+    /* Establecemos los manejadores */
+    if(sigaction(SIGINT, &act_SIGINT, NULL) < 0
+    || sigaction(SIGALRM, &act_SIGALRM, NULL) < 0) {
         perror("sigaction");
         exit(EXIT_FAILURE);
     }
@@ -70,17 +72,47 @@ int main() {
         return -1;
     } else if (pid_hijo == 0) { /* Ejecución del hijo */
         Block received_block;
+        Block *chain = NULL;
 
         close(fd[1]); /* Cerramos el extremo de escritura */
+        time_t next_alrm = time(NULL) + 5;
 
         while (1) {
-            alarm(5);
-            
+            if (time(NULL) > next_alrm) {
+                alarm(5);
+                next_alrm = 0;
+            }
+
+            if (sig_int_recibida == 1) break;
+
+            /* Leemos el bloque */
             int nbytes = read(fd[0], &received_block, sizeof(received_block));
             if (nbytes == -1) {
                 perror("read");
                 exit(EXIT_FAILURE);
             }
+
+            /* Hacemos una copia y la guardamos en nuestra cadena dinámica */
+            Block *aux = block_ini();
+            if (aux == NULL) {
+                fprintf(stderr, "Error al hacer block_ini\n");
+                exit(EXIT_FAILURE);
+            }
+            if (block_copy(&received_block, aux) == -1) {
+                fprintf(stderr, "Error en block_copy\n");
+                exit(EXIT_FAILURE);
+            }
+            if (block_set(chain, aux) == -1) {
+                fprintf(stderr, "Error en block_set\n");
+                exit(EXIT_FAILURE);
+            }
+            chain = aux;
+
+            if (sig_alrm_recibida == 1) {
+                sig_alrm_recibida = 0;
+                /* Escribimos en el archivo */
+            }
+
         }
     } else { /* Ejecución del padre */
 
@@ -144,7 +176,11 @@ int main() {
             }
         }
 
+        kill(pid_hijo, SIGINT);
+
         /* Cerrando la cola de mensajes */
         mq_close(queue);
     }
+
+    return 0;
 }

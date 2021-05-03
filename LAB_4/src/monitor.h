@@ -19,6 +19,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <mqueue.h>
+#include <time.h>
 
 #include "net.h"
 #include "block.h"
