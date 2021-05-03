@@ -40,5 +40,4 @@ typedef struct {
     Sems *sems;
     worker_struct *threads_info;
     Block *block;
-    sem_t mutex;
 } Miner_data;
