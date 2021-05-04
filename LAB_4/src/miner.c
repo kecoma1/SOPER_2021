@@ -153,6 +153,7 @@ int main(int argc, char *argv[]) {
     sem_down(&sems->net_mutex);
     NetData *net = create_net();
     if (net == NULL) {
+        sem_up(&sems->net_mutex);
         fprintf(stderr, "Error al crear/acceder a la red de mineros.\n");
         close_sems(sems);
         exit(EXIT_FAILURE);
@@ -160,11 +161,10 @@ int main(int argc, char *argv[]) {
     
     index = net_get_index(net);
     if (index == -1) {
+        sem_up(&sems->net_mutex);
         fprintf(stderr, "Error al obtener el indice donde nos encontramos en la red.\n");
         
-        sem_down(&sems->net_mutex);
         close_net(net);
-        sem_up(&sems->net_mutex);
         
         close_sems(sems);
         exit(EXIT_FAILURE);
@@ -289,7 +289,7 @@ int main(int argc, char *argv[]) {
     for (int n = 0; n < rounds || infinite == 1; n++) {
 
         /* Si la tarea no se completa en 5 segundos salimos */
-        alarm(5);
+        //alarm(5);
 
         /* Creamos el bloque */
         block = block_ini();
@@ -342,6 +342,7 @@ int main(int argc, char *argv[]) {
         sem_down(&sems->block_mutex);
         printf("MINEROS ACTUALIZAN\n");
         if (sbi->target != block->target) block->target = sbi->target;
+        block->id = sbi->id;
         sem_up(&sems->block_mutex);
 
         /* Creando threads */
@@ -582,6 +583,9 @@ int main(int argc, char *argv[]) {
                 if (positive_votes/quorum >= 0.5) {
                     printf("[%d] GANADOR Votación exitosa.\n", index);
 
+                    /* 13.0 Actualizamos el id */
+                    sbi->id += 1;
+
                     /* 13.1 En caso de exito ponemos is_valid a 1 */
                     sbi->is_valid = 1;
 
@@ -613,6 +617,7 @@ int main(int argc, char *argv[]) {
                 sbi->is_valid = 1;
                 net->last_winner = index;
                 sbi->wallets[index] += 1;
+                sbi->id += 1;
                 err = update_block(sbi, block);
             }
 
@@ -671,7 +676,50 @@ int main(int argc, char *argv[]) {
         /* Enviamos el bloque al monitor si existe */
         sem_down(&sems->net_mutex);
         if (net->monitor_pid != -1) {
+            Mensaje msg;
             
+            if (block_copy(block, &msg.block) == -1) {
+                fprintf(stderr, "Error en block_copy\n");
+                free(threads_info);
+                
+                sem_down(&sems->net_mutex);
+                close_net(net);
+                sem_up(&sems->net_mutex);
+
+                sem_down(&sems->block_mutex);
+                close_shared_block_info(sbi);
+                sem_up(&sems->block_mutex);
+
+                block_destroy_blockchain(block);
+
+                mq_close(queue);
+                mq_unlink(MQ_NAME);
+
+                close_sems(sems);
+
+                exit(EXIT_FAILURE); 
+            }
+            if(mq_send(queue, (const char *)&msg, sizeof(Mensaje), 0) == -1){
+                perror("execl");
+                free(threads_info);
+                
+                sem_down(&sems->net_mutex);
+                close_net(net);
+                sem_up(&sems->net_mutex);
+
+                sem_down(&sems->block_mutex);
+                close_shared_block_info(sbi);
+                sem_up(&sems->block_mutex);
+
+                block_destroy_blockchain(block);
+
+                mq_close(queue);
+                mq_unlink(MQ_NAME);
+
+                close_sems(sems);
+
+                exit(EXIT_FAILURE);
+            }
         }
         sem_up(&sems->net_mutex);
 

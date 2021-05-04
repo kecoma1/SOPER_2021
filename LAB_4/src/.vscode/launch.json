@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/miner",
-            "args": ["2", "3"],
+            "args": ["2", "0"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

@@ -8,7 +8,7 @@
             "name": "gcc - Compilar y depurar el archivo activo",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/src/miner",
+            "program": "${workspaceFolder}/src/monitor",
             "args": ["2", "3"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

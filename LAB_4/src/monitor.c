@@ -57,34 +57,13 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
+    /* Establecemos los manejadores */
     act_SIGINT.sa_handler = manejador_SIGINT;
     act_SIGALRM.sa_handler = manejador_SIGALRM;
-
-    /* Cargamos los semáforos */
-    Sems *sems = sems_ini();
-    if (sems == NULL) {
-        fprintf(stderr, "Error en sem_ini\n");
-        exit(EXIT_FAILURE);
-    }
-
-    /* Nos unimos a la red */
-    sem_down(&sems->net_mutex);
-    NetData *net = link_monitor_net();
-    if (net == NULL) {
-        fprintf(stderr, "Error en link_monitor_net, puede que no se haya creado la red.\n");
-        close_sems(sems);
-        exit(EXIT_FAILURE);
-    }
-    sem_up(&sems->net_mutex);
-
-    /* Establecemos los manejadores */
-    if(sigaction(SIGINT, &act_SIGINT, NULL) < 0
-    || sigaction(SIGALRM, &act_SIGALRM, NULL) < 0) {
-        perror("sigaction");
-        close_sems(sems);
-        close_net(net);
-        exit(EXIT_FAILURE);
-    }
+    sigemptyset(&(act_SIGINT.sa_mask));
+    sigemptyset(&(act_SIGALRM.sa_mask));
+    act_SIGINT.sa_flags = 0;
+    act_SIGALRM.sa_flags = 0;
 
     /* Creando un hijo */
     pid_hijo = fork();
@@ -92,8 +71,14 @@ int main() {
         perror("fork");
         return -1;
     } else if (pid_hijo == 0) { /* Ejecución del hijo */
-        Block received_block;
-        Block *chain = NULL;
+
+        if(sigaction(SIGINT, &act_SIGINT, NULL) < 0
+        || sigaction(SIGALRM, &act_SIGALRM, NULL) < 0) {
+            perror("sigaction");
+            exit(EXIT_FAILURE);
+        }
+
+        Block *last_block = NULL;
 
         close(fd[1]); /* Cerramos el extremo de escritura */
         time_t next_alrm = time(NULL) + 5;
@@ -105,49 +90,90 @@ int main() {
         }
 
         while (1) {
+            Block received_block;
             if (time(NULL) > next_alrm) {
                 alarm(5);
-                next_alrm = 0;
+                next_alrm = time(NULL) + 5;
             }
 
             if (sig_int_recibida == 1) break;
 
             /* Leemos el bloque */
-            int nbytes = read(fd[0], &received_block, sizeof(received_block));
-            if (nbytes == -1) {
+            int nbytes = read(fd[0], &received_block, sizeof(Block));
+            if (errno != EINTR && nbytes == -1) {
                 perror("read");
                 fclose(pf);
                 exit(EXIT_FAILURE);
             }
 
             /* Hacemos una copia y la guardamos en nuestra cadena dinámica */
-            Block *aux = block_ini();
-            if (aux == NULL) {
-                fprintf(stderr, "Error al hacer block_ini\n");
-                fclose(pf);
-                exit(EXIT_FAILURE);
-            }
-            if (block_copy(&received_block, aux) == -1) {
-                fprintf(stderr, "Error en block_copy\n");
-                fclose(pf);
-                exit(EXIT_FAILURE);
-            }
-            if (block_set(chain, aux) == -1) {
-                fprintf(stderr, "Error en block_set\n");
-                fclose(pf);
-                exit(EXIT_FAILURE);
-            }
-            chain = aux;
+            if (nbytes != -1) {
+                Block *aux = block_ini();
+                if (aux == NULL) {
+                    fprintf(stderr, "Error al hacer block_ini\n");
+                    fclose(pf);
+                    exit(EXIT_FAILURE);
+                }
+                if (block_copy(&received_block, aux) == -1) {
+                    fprintf(stderr, "Error en block_copy\n");
+                    fclose(pf);
+                    exit(EXIT_FAILURE);
+                }
+                
+                if (last_block != NULL) {
+                    last_block->next = aux;
+                    aux->prev = last_block;
+                } else {
+                    aux->prev = NULL;
+                    aux->next = NULL;
+                }
+                aux->next = NULL;
+                last_block = aux;
 
-            if (sig_alrm_recibida == 1) {
-                sig_alrm_recibida = 0;
+                if (sig_alrm_recibida == 1) {
+                    sig_alrm_recibida = 0;
 
-                /* Escribimos en el archivo */
-                print_blocks_in_file(pf, chain);
+                    /* Escribimos en el archivo */
+                    fprintf(pf, "########## Mostrando la blockchain. ##########\n");
+                    print_blocks_in_file(pf, last_block);
+                }
             }
-
         }
+
+        printf("MEM UEROOO\n");
+        fclose(pf);
+        block_destroy_blockchain(last_block);
     } else { /* Ejecución del padre */
+
+        /* Cargamos los semáforos */
+        Sems *sems = sems_ini();
+        if (sems == NULL) {
+            fprintf(stderr, "Error en sem_ini\n");
+            kill(pid_hijo, SIGINT);
+            waitpid(pid_hijo, NULL, 0);
+            exit(EXIT_FAILURE);
+        }
+
+        /* Nos unimos a la red */
+        sem_down(&sems->net_mutex);
+        NetData *net = link_monitor_net();
+        if (net == NULL) {
+            sem_up(&sems->net_mutex);
+            fprintf(stderr, "Error en link_monitor_net, puede que no se haya creado la red.\n");
+            kill(pid_hijo, SIGINT);
+            waitpid(pid_hijo, NULL, 0);
+            close_sems(sems);
+            exit(EXIT_FAILURE);
+        }
+        sem_up(&sems->net_mutex);
+
+        if(sigaction(SIGINT, &act_SIGINT, NULL) < 0
+        || sigaction(SIGALRM, &act_SIGALRM, NULL) < 0) {
+            perror("sigaction");
+            kill(pid_hijo, SIGINT);
+            waitpid(pid_hijo, NULL, 0);
+            exit(EXIT_FAILURE);
+        }
 
         close(fd[0]); /* Cerramos extremo de lectura */
 
@@ -161,55 +187,105 @@ int main() {
         mqd_t queue = mq_open(MQ_NAME, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR, &attributes);
         if (queue == (mqd_t)-1) {
             perror("mq_open");
+            kill(pid_hijo, SIGINT);
+            waitpid(pid_hijo, NULL, 0);
+
+            sem_down(&sems->net_mutex);
+            close_net(net);
+            sem_up(&sems->net_mutex);
+
+            close_sems(sems);
             exit(EXIT_FAILURE);
         }
 
         while (1) {
             Mensaje msg;
 
-            if (sig_int_recibida) break;
+            if (sig_int_recibida == 1) break;
 
             /* Recibimos la instruccion mandada */
             if (mq_receive(queue, (char *)&msg, sizeof(Mensaje), NULL) == -1){
-                perror("mq_receive");
-                mq_close(queue);
-                exit(EXIT_FAILURE);
+                if (errno != EINTR) {
+                    perror("mq_receive");
+                    kill(pid_hijo, SIGINT);
+                    waitpid(pid_hijo, NULL, 0);
+
+                    mq_close(queue);
+
+                    sem_down(&sems->net_mutex);
+                    close_net(net);
+                    sem_up(&sems->net_mutex);
+
+                    close_sems(sems);
+                    exit(EXIT_FAILURE);
+                }
+                msg.block.id = -1; // Para no actualizar la cadena
             }
 
-            /* Comprobamos si el bloque ya esta en el buffer */
-            short is_in = 0;
-            for (int i = 0; i < BUFFER_SIZE; i++) 
-                if (buffer_blocks[i] != NULL) 
-                    if (buffer_blocks[i]->id == msg.block.id)
-                        is_in = 1;
+            if (msg.block.id != -1) {
+                /* Comprobamos si el bloque ya esta en el buffer */
+                short is_in = 0;
+                for (int i = 0; i < BUFFER_SIZE; i++) 
+                    if (buffer_blocks[i] != NULL) 
+                        if (buffer_blocks[i]->id == msg.block.id)
+                            is_in = 1;
 
-            if (is_in == 1) {
-                /* Imprimimos el mensaje que toque */
-                if (simple_hash(msg.block.solution) == msg.block.target)
-                    printf("Verified block %d with solution %ld for target %ld\n", msg.block.id, msg.block.solution, msg.block.target);
-                else printf("Error in block %d with solution %ld for target %ld\n", msg.block.id, msg.block.solution, msg.block.target);
+                if (is_in == 1) {
+                    /* Imprimimos el mensaje que toque */
+                    if (simple_hash(msg.block.solution) == msg.block.target)
+                        printf("Verified block %d with solution %ld for target %ld\n", msg.block.id, msg.block.solution, msg.block.target);
+                    else printf("Error in block %d with solution %ld for target %ld\n", msg.block.id, msg.block.solution, msg.block.target);
+
+                } else {
+                    /* Metemos el bloque en el buffer */
+                    buffer_blocks[index] = &msg.block;
+                    index = (index+1)%BUFFER_SIZE;
+                }
 
                 Block b_copy;
                 if (block_copy(&msg.block, &b_copy) == -1) {
+                    fprintf(stderr, "block_copy\n");
+                    kill(pid_hijo, SIGINT);
+                    waitpid(pid_hijo, NULL, 0);
+
                     mq_close(queue);
+
+                    sem_down(&sems->net_mutex);
+                    close_net(net);
+                    sem_up(&sems->net_mutex);
+
+                    close_sems(sems);
                     exit(EXIT_FAILURE);
                 }
 
                 /* Escribimos la copia del bloque en la tubería */
-                int nbytes = write(fd[1], &b_copy, sizeof(b_copy));
+                int nbytes = write(fd[1], &b_copy, sizeof(Block));
                 if (nbytes == -1) {
+                    kill(pid_hijo, SIGINT);
+                    waitpid(pid_hijo, NULL, 0);
+
                     perror("write");
                     mq_close(queue);
+
+                    sem_down(&sems->net_mutex);
+                    close_net(net);
+                    sem_up(&sems->net_mutex);
+
+                    close_sems(sems);
+
                     exit(EXIT_FAILURE);
                 }
-            } else {
-                /* Metemos el bloque en el buffer */
-                buffer_blocks[index] = &msg.block;
-                index = (index+1)%BUFFER_SIZE;
             }
         }
-
+        /* Esperamos a nuesto hijo */
         kill(pid_hijo, SIGINT);
+        waitpid(pid_hijo, NULL, 0);
+
+        sem_down(&sems->net_mutex);
+        close_net(net);
+        sem_up(&sems->net_mutex);
+
+        close_sems(sems);
 
         /* Cerrando la cola de mensajes */
         mq_close(queue);

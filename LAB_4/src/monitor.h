@@ -21,6 +21,7 @@
 #include <mqueue.h>
 #include <time.h>
 #include <string.h>
+#include <wait.h>
 
 #include "net.h"
 #include "block.h"

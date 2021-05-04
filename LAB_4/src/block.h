@@ -39,6 +39,7 @@ typedef struct _Block {
 typedef struct {
     long int target;
     long int solution;
+    int id;
     int is_valid;
     int num_miners;
     int wallets[MAX_MINERS];

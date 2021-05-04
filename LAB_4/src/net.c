@@ -78,6 +78,7 @@ NetData *link_monitor_net() {
     }
 
     nd->monitor_pid = getpid();
+    return nd;
 }
 
 
@@ -176,16 +177,21 @@ void close_net(NetData *nd) {
 
     if (nd == NULL) return;
 
-    nd->total_miners -= 1;
-    if (nd->total_miners == 0) bool_borrar = 1;
+    /* En caso de ser el monitor solo cambiamos el pid */
+    if (getpid() == nd->monitor_pid) {
+        nd->monitor_pid = -1;
+        if (nd->total_miners == 0) shm_unlink(SHM_NAME_NET);
+        munmap(nd, sizeof(NetData));
+    } else {
+        nd->total_miners -= 1;
+        if (nd->total_miners == 0) bool_borrar = 1;
 
-    int index = net_get_index(nd);
-    nd->miners_pid[index] = -1;
+        int index = net_get_index(nd);
+        nd->miners_pid[index] = -1;
 
-    if (getpid() == nd->monitor_pid) nd->monitor_pid = -1;
+        /* En caso de que seamos los últimos en abandonar la red la destruimos */
+        if (bool_borrar == 1 && nd->monitor_pid != -1) shm_unlink(SHM_NAME_NET);
 
-    /* En caso de que seamos los últimos en abandonar la red la destruimos */
-    if (bool_borrar == 1) shm_unlink(SHM_NAME_NET);
-
-    munmap(nd, sizeof(NetData));
+        munmap(nd, sizeof(NetData));
+    }
 }

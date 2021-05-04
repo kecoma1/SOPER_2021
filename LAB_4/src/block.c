@@ -139,6 +139,7 @@ shared_block_info *create_shared_block_info() {
     sbi->num_miners = 1;
     sbi->solution = -1;
     sbi->is_valid = -1;
+    sbi->id = 1;
 
     /* Inicializamos el target a un número aleatorio */
     sbi->target = rand () % (1000000-1+1) + 1;
@@ -209,7 +210,7 @@ void print_blocks_in_file(FILE *pf, Block * block) {
     /* Imprimimos toda la cadena */
     while(aux != NULL) {
         fprintf(pf, "BLOCK %d:\n\tis_valid: %d\n\ttarget: %ld\n\tsolution: %ld\nWallets:\n", aux->id, aux->is_valid, aux->target, aux->solution);
-        for (int i = 0; i < MAX_MINERS; i++) if (aux->wallets[i] != 0) fprintf(pf,"%d: %d |", i, aux->wallets[i]);
+        for (int i = 0; i < MAX_MINERS; i++) if (aux->wallets[i] != 0) fprintf(pf," %d: %d |", i, aux->wallets[i]);
         fprintf(pf, "\n------------------------------------------------------------------------------\n");
         aux = aux->next;
     }
