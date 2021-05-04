@@ -140,7 +140,7 @@ int main() {
             }
         }
 
-        printf("MEM UEROOO\n");
+        print_blocks_in_file(pf, last_block);
         fclose(pf);
         block_destroy_blockchain(last_block);
     } else { /* Ejecución del padre */

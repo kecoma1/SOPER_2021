@@ -122,7 +122,7 @@ int net_get_index(NetData *net) {
     pid_t pid = getpid();
     int index = -1;
   
-    for (int i = 0; i < net->total_miners; i++) {
+    for (int i = 0; i < MAX_MINERS; i++) {
         if (pid == net->miners_pid[i]) {
             index = i;
             break;
@@ -187,7 +187,7 @@ void close_net(NetData *nd) {
         if (nd->total_miners == 0) bool_borrar = 1;
 
         int index = net_get_index(nd);
-        nd->miners_pid[index] = -1;
+        if (index != -1) nd->miners_pid[index] = -1;
 
         /* En caso de que seamos los últimos en abandonar la red la destruimos */
         if (bool_borrar == 1 && nd->monitor_pid != -1) shm_unlink(SHM_NAME_NET);
