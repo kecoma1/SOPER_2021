@@ -47,6 +47,14 @@ typedef struct _NetData {
 NetData *create_net();
 
 /**
+ * @brief Función para que el monitor se una a la red.
+ * No modifica parametros como total_miners...
+ * 
+ * @return NetData* Zona de memoria compartida con la Red.
+ */
+NetData *link_monitor_net();
+
+/**
  * @brief Función que obtiene una zona de memoria compartida
  * ya creada.
  * 

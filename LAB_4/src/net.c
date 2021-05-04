@@ -59,6 +59,28 @@ NetData *create_net() {
     return nd;
 }
 
+NetData *link_monitor_net() {
+    NetData *nd = NULL;
+    int fd_shm;
+
+    /* Open of the shared memory. */
+    if ((fd_shm = shm_open(SHM_NAME_NET, O_RDWR, 0)) == -1) {
+        perror("shm_open");
+        return NULL;
+    }
+
+    /* Mapping of the memory segment. */
+    nd = mmap(NULL, sizeof(NetData), PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm, 0);
+    close(fd_shm);
+    if (nd == MAP_FAILED) {
+        perror("mmap");
+        return NULL;
+    }
+
+    nd->monitor_pid = getpid();
+}
+
+
 NetData *link_shared_net() {
     NetData *nd = NULL;
     int fd_shm;
@@ -159,6 +181,8 @@ void close_net(NetData *nd) {
 
     int index = net_get_index(nd);
     nd->miners_pid[index] = -1;
+
+    if (getpid() == nd->monitor_pid) nd->monitor_pid = -1;
 
     /* En caso de que seamos los últimos en abandonar la red la destruimos */
     if (bool_borrar == 1) shm_unlink(SHM_NAME_NET);

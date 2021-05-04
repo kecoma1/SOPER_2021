@@ -69,13 +69,12 @@ int main() {
 
     /* Nos unimos a la red */
     sem_down(&sems->net_mutex);
-    NetData *net = create_net();
+    NetData *net = link_monitor_net();
     if (net == NULL) {
-        fprintf(stderr, "Error en create_net\n");
+        fprintf(stderr, "Error en link_monitor_net, puede que no se haya creado la red.\n");
         close_sems(sems);
         exit(EXIT_FAILURE);
     }
-    net->monitor_pid = pid_padre;
     sem_up(&sems->net_mutex);
 
     /* Establecemos los manejadores */

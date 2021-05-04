@@ -25,7 +25,7 @@ monitor:
 	gcc -g trabajador.o block.o net.o sems.o monitor.o -o monitor -lpthread -lrt
 
 clean:
-	rm -f *.o miner
+	rm -f *.o miner monitor
 
 valgrind:
 	valgrind --leak-check=full --show-leak-kinds=all ./miner 1 5
