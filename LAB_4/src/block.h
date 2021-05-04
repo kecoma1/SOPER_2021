@@ -115,6 +115,15 @@ void close_shared_block_info(shared_block_info *sbi);
  */
 short update_block(shared_block_info *sbi, Block *block);
 
+/**
+ * @brief Función para imprimir la blockchain en un archivo.
+ * 
+ * @param pf Archivo donde imprimir.
+ * @param block Bloque en el que imprimir. 
+ */
+void print_blocks_in_file(FILE *pf, Block * block);
+
 void print_blocks(Block * plast_block, int num_wallets);
+
 
 #endif

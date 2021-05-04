@@ -20,10 +20,12 @@
 #include <sys/stat.h>
 #include <mqueue.h>
 #include <time.h>
+#include <string.h>
 
 #include "net.h"
 #include "block.h"
 #include "trabajador.h"
+#include "sems.h"
 
 #define MQ_NAME "/cola"
 #define BUFFER_SIZE 10

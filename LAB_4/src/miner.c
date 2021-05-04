@@ -225,6 +225,25 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    /* Inicializamos la estructura de la cola de mensajes */
+    struct mq_attr attributes = {
+        .mq_flags = 0,
+        .mq_maxmsg = 10,
+        .mq_curmsgs = 0,
+        .mq_msgsize = sizeof(Mensaje)
+    };
+
+    /* Abrimos la cola */
+    mqd_t queue = mq_open(MQ_NAME, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR, &attributes);
+    if (queue == (mqd_t)-1) {
+        perror("mq_open");
+
+        mq_close(queue);
+        mq_unlink(MQ_NAME);
+
+        exit(EXIT_FAILURE);
+    }
+
     /* Como ya está todo inicializado volvemos a permitir la señal SIGINT */
     if(sigprocmask(SIG_UNBLOCK, &mask, NULL) == -1) {
         perror("sigprocmask");
@@ -237,6 +256,9 @@ int main(int argc, char *argv[]) {
         sem_down(&sems->block_mutex);
         close_shared_block_info(sbi);
         sem_up(&sems->block_mutex);
+
+        mq_close(queue);
+        mq_unlink(MQ_NAME);
 
         close_sems(sems);
 
@@ -254,6 +276,9 @@ int main(int argc, char *argv[]) {
         sem_down(&sems->block_mutex);
         close_shared_block_info(sbi);
         sem_up(&sems->block_mutex);
+
+        mq_close(queue);
+        mq_unlink(MQ_NAME);
 
         close_sems(sems);
 
@@ -282,6 +307,9 @@ int main(int argc, char *argv[]) {
 
             block_destroy_blockchain(last_block);
 
+            mq_close(queue);
+            mq_unlink(MQ_NAME);
+
             close_sems(sems);
 
             exit(EXIT_FAILURE);
@@ -301,6 +329,9 @@ int main(int argc, char *argv[]) {
             sem_up(&sems->block_mutex);
 
             block_destroy_blockchain(block);
+
+            mq_close(queue);
+            mq_unlink(MQ_NAME);
 
             close_sems(sems);
 
@@ -337,6 +368,9 @@ int main(int argc, char *argv[]) {
 
                 block_destroy_blockchain(block);
 
+                mq_close(queue);
+                mq_unlink(MQ_NAME);
+
                 close_sems(sems);
 
                 exit(EXIT_FAILURE);
@@ -361,6 +395,9 @@ int main(int argc, char *argv[]) {
                 sem_up(&sems->block_mutex);
 
                 block_destroy_blockchain(block);
+
+                mq_close(queue);
+                mq_unlink(MQ_NAME);
 
                 close_sems(sems);
 
@@ -507,6 +544,9 @@ int main(int argc, char *argv[]) {
 
                 block_destroy_blockchain(block);
 
+                mq_close(queue);
+                mq_unlink(MQ_NAME);
+
                 close_sems(sems);
 
                 exit(EXIT_FAILURE);
@@ -602,6 +642,9 @@ int main(int argc, char *argv[]) {
 
                 block_destroy_blockchain(block);
 
+                mq_close(queue);
+                mq_unlink(MQ_NAME);
+
                 close_sems(sems);
 
                 exit(EXIT_FAILURE);                
@@ -623,16 +666,22 @@ int main(int argc, char *argv[]) {
 
             /* 20. Acabamos el proceso de votación liberando a los votantes */
             for (int k = 0; k < quorum; k++) sem_up(&sems->finish);
-
         }
+
+        /* Enviamos el bloque al monitor si existe */
+        sem_down(&sems->net_mutex);
+        if (net->monitor_pid != -1) {
+            
+        }
+        sem_up(&sems->net_mutex);
 
         /* No debería ejecutarse nunca */
         if (block->solution == -1)
             printf("No se ha encontrado la solución.\n");
         
-
         last_block = block;
         solution_find = 0;
+        printf("MINEROS TERMINO LOOP, vuelvo a empezar\n");
     }
     printf("HE SALIDO DEL LOOP\n");
     /* Liberamos recursos */
@@ -643,6 +692,9 @@ int main(int argc, char *argv[]) {
     sem_down(&sems->block_mutex);
     close_shared_block_info(sbi);
     sem_up(&sems->block_mutex);
+
+    mq_close(queue);
+    mq_unlink(MQ_NAME);
 
     close_sems(sems);
 

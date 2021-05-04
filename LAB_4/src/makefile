@@ -1,4 +1,4 @@
-all: clean miner.o trabajador.o block.o net.o sems.o exe
+all: clean miner.o trabajador.o block.o net.o sems.o monitor.o miner monitor
 
 miner.o:
 	gcc -g -c miner.c -lpthread
@@ -15,8 +15,14 @@ net.o:
 sems.o:
 	gcc -g -c sems.c
 
-exe:
+monitor.o:
+	gcc -g -c monitor.c
+
+miner:
 	gcc -g miner.o trabajador.o block.o net.o sems.o -o miner -lpthread -lrt
+
+monitor:
+	gcc -g trabajador.o block.o net.o sems.o monitor.o -o monitor -lpthread -lrt
 
 clean:
 	rm -f *.o miner

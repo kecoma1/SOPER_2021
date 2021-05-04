@@ -196,6 +196,24 @@ short update_block(shared_block_info *sbi, Block *block) {
     return 0;
 }
 
+void print_blocks_in_file(FILE *pf, Block * block) {
+    Block *aux = NULL;
+
+    if (pf == NULL || block == NULL) return;
+
+    /* Vamos al primer bloque */
+    aux = block;
+    while(aux->prev != NULL)
+        aux = aux->prev;
+
+    /* Imprimimos toda la cadena */
+    while(aux != NULL) {
+        fprintf(pf, "BLOCK %d:\n\tis_valid: %d\n\ttarget: %ld\n\tsolution: %ld\nWallets:\n", aux->id, aux->is_valid, aux->target, aux->solution);
+        for (int i = 0; i < MAX_MINERS; i++) if (aux->wallets[i] != 0) fprintf(pf,"%d: %d |", i, aux->wallets[i]);
+        fprintf(pf, "\n------------------------------------------------------------------------------\n");
+        aux = aux->next;
+    }
+}
 
 void print_blocks(Block *plast_block, int num_wallets) {
     Block *block = NULL;

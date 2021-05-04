@@ -24,15 +24,19 @@
 #include <semaphore.h>
 #include <sys/types.h>
 #include <signal.h>
+#include <mqueue.h>
 
 #include "trabajador.h"
 #include "block.h"
 #include "net.h"
 #include "sems.h"
+#include "monitor.h"
 
 #define OK 0
 #define MAX_WORKERS 10
 #define MAX_MINERS 200
+#define MQ_NAME "/cola"
+
 
 typedef struct {
     NetData *nd;

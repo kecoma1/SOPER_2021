@@ -50,6 +50,8 @@ int main() {
         .mq_msgsize = sizeof(Mensaje)
     };
 
+    pid_padre = getpid();
+
     if (pipe(fd) == -1) {
         perror("pipe");
         exit(EXIT_FAILURE);
@@ -58,10 +60,30 @@ int main() {
     act_SIGINT.sa_handler = manejador_SIGINT;
     act_SIGALRM.sa_handler = manejador_SIGALRM;
 
+    /* Cargamos los semáforos */
+    Sems *sems = sems_ini();
+    if (sems == NULL) {
+        fprintf(stderr, "Error en sem_ini\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Nos unimos a la red */
+    sem_down(&sems->net_mutex);
+    NetData *net = create_net();
+    if (net == NULL) {
+        fprintf(stderr, "Error en create_net\n");
+        close_sems(sems);
+        exit(EXIT_FAILURE);
+    }
+    net->monitor_pid = pid_padre;
+    sem_up(&sems->net_mutex);
+
     /* Establecemos los manejadores */
     if(sigaction(SIGINT, &act_SIGINT, NULL) < 0
     || sigaction(SIGALRM, &act_SIGALRM, NULL) < 0) {
         perror("sigaction");
+        close_sems(sems);
+        close_net(net);
         exit(EXIT_FAILURE);
     }
 
@@ -77,6 +99,12 @@ int main() {
         close(fd[1]); /* Cerramos el extremo de escritura */
         time_t next_alrm = time(NULL) + 5;
 
+        FILE *pf = fopen("blockchain.log", "w");
+        if (pf == NULL) {
+            perror("read");
+            exit(EXIT_FAILURE);
+        }
+
         while (1) {
             if (time(NULL) > next_alrm) {
                 alarm(5);
@@ -89,6 +117,7 @@ int main() {
             int nbytes = read(fd[0], &received_block, sizeof(received_block));
             if (nbytes == -1) {
                 perror("read");
+                fclose(pf);
                 exit(EXIT_FAILURE);
             }
 
@@ -96,21 +125,26 @@ int main() {
             Block *aux = block_ini();
             if (aux == NULL) {
                 fprintf(stderr, "Error al hacer block_ini\n");
+                fclose(pf);
                 exit(EXIT_FAILURE);
             }
             if (block_copy(&received_block, aux) == -1) {
                 fprintf(stderr, "Error en block_copy\n");
+                fclose(pf);
                 exit(EXIT_FAILURE);
             }
             if (block_set(chain, aux) == -1) {
                 fprintf(stderr, "Error en block_set\n");
+                fclose(pf);
                 exit(EXIT_FAILURE);
             }
             chain = aux;
 
             if (sig_alrm_recibida == 1) {
                 sig_alrm_recibida = 0;
+
                 /* Escribimos en el archivo */
+                print_blocks_in_file(pf, chain);
             }
 
         }
@@ -125,7 +159,7 @@ int main() {
         for (int i = 0; i < BUFFER_SIZE; i++) buffer_blocks[i] = NULL;
 
         /* Abrimos la cola de mensajes */
-        mqd_t queue = mq_open(MQ_NAME, O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR, &attributes);
+        mqd_t queue = mq_open(MQ_NAME, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR, &attributes);
         if (queue == (mqd_t)-1) {
             perror("mq_open");
             exit(EXIT_FAILURE);
@@ -153,8 +187,8 @@ int main() {
             if (is_in == 1) {
                 /* Imprimimos el mensaje que toque */
                 if (simple_hash(msg.block.solution) == msg.block.target)
-                    printf("Verified block %d with solution %ld for target %ld\n", msg.block.id);
-                else printf("Error in block %d with solution %ld for target %ld\n", msg.block.id);
+                    printf("Verified block %d with solution %ld for target %ld\n", msg.block.id, msg.block.solution, msg.block.target);
+                else printf("Error in block %d with solution %ld for target %ld\n", msg.block.id, msg.block.solution, msg.block.target);
 
                 Block b_copy;
                 if (block_copy(&msg.block, &b_copy) == -1) {
@@ -163,7 +197,7 @@ int main() {
                 }
 
                 /* Escribimos la copia del bloque en la tubería */
-                int nbytes = write(fd[1], &b_copy, strlen(b_copy));
+                int nbytes = write(fd[1], &b_copy, sizeof(b_copy));
                 if (nbytes == -1) {
                     perror("write");
                     mq_close(queue);

@@ -45,6 +45,7 @@ NetData *create_net() {
     /* Inicializamos variables */
     nd->last_miner = pid;
     nd->last_winner = -1;
+    nd->monitor_pid = -1;
     
     /* Inicializando PIDs a -1 */
     for (int i = 0; i < MAX_MINERS; i++)
