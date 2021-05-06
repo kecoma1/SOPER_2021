@@ -19,7 +19,13 @@
 extern int solution_find;
 short sig_int_recibida = 0;
 short sig_usr2_recibida = 0;
-Miner_data m_data;
+short sig_usr1_recibida = 0;
+
+Sems *sems = NULL;
+NetData *net = NULL;
+shared_block_info *sbi = NULL;
+
+Block *block_SIGUSR2 = NULL;
 
 
 /**
@@ -48,15 +54,87 @@ void manejador_SIGUSR2(int sig) {
     acaben cuanto antes */
     solution_find = 1;
 
-    sig_usr2_recibida = 1;
+    sig_usr1_recibida = 0;
+
+    block_SIGUSR2 = block_ini();
+    if (block_SIGUSR2 == NULL) {
+        sig_int_recibida = 1; // Para que salga de la ejecución
+        block_SIGUSR2 = NULL;
+        return;
+    }
+
+    /* Obtenemos el indice donde nos encontramos */
+    sem_down(&sems->net_mutex);
+    short index = net_get_index(net);
+    sem_up(&sems->net_mutex);
+
+    printf("[%d] Soy perdedor.\n", index);
+
+    sem_down(&sems->vote);
+    printf("VOTANTE: empiezo a votar\n");
+
+    /* 8. El minero comprueba el resultado */
+    short result = -1; 
+    sem_down(&sems->block_mutex);
+    printf("VOTANTE: Compruebo resultado\n");
+    if (sbi->target == simple_hash(sbi->solution)) result = 1; // Voto positivo
+    else result = 0; // Voto negativo
+    sem_up(&sems->block_mutex);
+
+    /* 9. El minero introduce su voto */
+    sem_down(&sems->net_mutex);
+    net->voting_pool[index] = result;
+    printf("VOTANTE: Voto\n");
+    
+    /* 10. Si somos el último en votar dejamos que cuente los votos el ganador */
+    if (count_votes(net) >= net->total_miners-1) sem_up(&sems->count_votes);
+    sem_up(&sems->net_mutex);
+
+    sem_down(&sems->update_blocks);
+    printf("VOTANTE: Actualizo mis bloques.\n");
+
+    /* 16. Actualizamos nuestro bloque */
+    short err = 0;
+    sem_down(&sems->block_mutex);
+    printf("VOTANTE: Actualizo - is_valid: %d\n", sbi->is_valid);
+    if (sbi->is_valid == 1) err = update_block(sbi, block_SIGUSR2);
+    else {
+        /* 15.1 Destruimos el bloque */
+        Block *aux = NULL;
+
+        aux = block_SIGUSR2;
+        block_SIGUSR2 = aux->prev;
+        printf("Solution block = %ld\n", block_SIGUSR2->solution);
+        block_destroy(aux);
+    }
+    sem_up(&sems->block_mutex);
+
+    /* 17. Dejamos al proceso ganador actualizar el nuevo target */
+    sem_down(&sems->mutex);
+    sem_down(&sems->net_mutex);
+    printf("VOTANTE: Dejamos actualizar el target\n");
+    sems->finished_miners += 1;
+    if (sems->finished_miners >= net->total_miners) {
+        sem_down(&sems->net_mutex);
+        sem_up(&sems->net_mutex);
+        if (net->total_miners > 0) sem_post(&sems->update_target);
+        sems->finished_miners = 0;
+    }
+    sem_up(&sems->net_mutex);
+    sem_up(&sems->mutex);
+
+    sem_down(&sems->finish);
+    printf("VOTANTE: salgo\n");
 }
 
 /**
- * @brief Manejador de la señal SIGUSR1. Vacío.
+ * @brief Manejador de la señal SIGUSR1.
  * 
  * @param sig Señal
  */
-void manejador_SIGUSR1(int sig) {}
+void manejador_SIGUSR1(int sig) {
+    sig_usr1_recibida = 1;
+}
 
 /**
  * @brief Manejador de la Señal sigalrm.
@@ -143,7 +221,7 @@ int main(int argc, char *argv[]) {
     }
 
     /* Creamos/cargamos semáforos */
-    Sems *sems = sems_ini();
+    sems = sems_ini();
     if (sems == NULL) {
         fprintf(stderr, "Error al crear/cargar los semáforos.\n");
         exit(EXIT_FAILURE);
@@ -151,21 +229,10 @@ int main(int argc, char *argv[]) {
 
     /* Creamos/accedemos a la red */
     sem_down(&sems->net_mutex);
-    NetData *net = create_net();
+    net = create_net();
     if (net == NULL) {
         sem_up(&sems->net_mutex);
         fprintf(stderr, "Error al crear/acceder a la red de mineros.\n");
-        close_sems(sems);
-        exit(EXIT_FAILURE);
-    }
-    
-    index = net_get_index(net);
-    if (index == -1) {
-        sem_up(&sems->net_mutex);
-        fprintf(stderr, "Error al obtener el indice donde nos encontramos en la red.\n");
-        
-        close_net(net);
-        
         close_sems(sems);
         exit(EXIT_FAILURE);
     }
@@ -194,7 +261,7 @@ int main(int argc, char *argv[]) {
     }
 
     /* Creamos/linkeamos la memoria compartida */
-    shared_block_info *sbi = create_shared_block_info();
+    sbi = create_shared_block_info();
     if (sbi == NULL) {
         fprintf(stderr, "Error al crear/linkear la memoria compartida.\n");
         
@@ -314,7 +381,6 @@ int main(int argc, char *argv[]) {
 
             exit(EXIT_FAILURE);
         }
-        m_data.block = block;
 
         if (block_set(last_block, block) == -1) {
             fprintf(stderr, "Error inicializando el bloque. block_set.\n");
@@ -409,29 +475,16 @@ int main(int argc, char *argv[]) {
         }
 
         /* Comprobamos si alguien ha propuesto una solución */
-        short is_founded = 0;
+        short solution_found = 0;
         sem_down(&sems->block_mutex);
-        if (sbi->solution != -1 && sbi->solution != 0) is_founded = 1; // Solución ya encontrada por otro 
-        else if (sbi->solution == 0); // Significa que no se ha enviado SIGUSR2, tenemos que suspendernos
-        else sbi->solution = 0; // Somos el primero en encontrar la solución
-        printf("MINEROS CONSULTAN SI ALGUIEN HA RESPONDIDO: is founded = %d, solution = %ld\n", is_founded, sbi->solution);
-        sem_up(&sems->block_mutex);
+        if (sbi->solution != -1) solution_found = 1;
+        else sbi->solution = 0; // valor temporal para mostrar que se ha encontrado la solución
+        sem_down(&sems->block_mutex);
 
-        /*if (is_founded == 1) {
-            sigpending (&waiting_mask);
-            if (sigismember(&waiting_mask, SIGINT)
-            ||  sigismember(&waiting_mask, SIGINT)) {
-                sigsuspend(&wait_for_winner);
-            }
-        }*/
-        /* Comprobamos las señales pendientes */
-        sigpending (&waiting_mask);
-        if (is_founded == 1 
-        || sigismember(&waiting_mask, SIGALRM)
-        || sigismember(&waiting_mask, SIGINT)
-        || sigismember(&waiting_mask, SIGUSR2))sigsuspend(&wait_for_winner);
+        /* Si la solución ha sido encontrada nos suspendemos esperando SIGUSR2 */
+        /* Hacemos while para que en caso de recibir SIGUSR1 volvamos a suspendernos */
+        while (solution_found == 1 && sig_usr2_recibida == 0)sigsuspend(&wait_for_winner);
         printf("MINEROS salen de sigsuspend\n");
-
 
         /* Abandonamos el bucle principal si se ha recibido SIGINT */
         if (sig_int_recibida == 1) {
@@ -445,90 +498,15 @@ int main(int argc, char *argv[]) {
             sem_up(&sems->net_mutex);
 
             /* Comprobamos que no se nos haya hecho el quorum */
-            sigpending (&waiting_mask);
-            if(sigismember(&waiting_mask, SIGUSR1) == 0
-            && sig_usr2_recibida == 0) break;
+            if(sig_usr1_recibida == 0) break;
         }
-        if (sig_usr2_recibida == 1) { /* Votación */
-            int total_miners = 0;
-            sig_usr2_recibida = 0;
+        
+        if (solution_found == 0) { /* Ganador */
 
-            int total_voters = 0;
-            printf("[%d] Soy perdedor.\n", index);
-
-            /* 7. El minero se bloquea antes votar */
-            /*sem_down(&sems->net_mutex);
-            total_miners = net->total_miners;
-            sem_up(&sems->net_mutex);
-            if (total_miners > 0)*/ sem_down(&sems->vote);
-            printf("VOTANTE: empiezo a votar\n");
-
-            /* 8. El minero comprueba el resultado */
-            short result = -1; 
-            sem_down(&sems->block_mutex);
-            printf("VOTANTE: Compruebo resultado\n");
-            if (sbi->target == simple_hash(sbi->solution)) result = 1; // Voto positivo
-            else result = 0; // Voto negativo
-            sem_up(&sems->block_mutex);
-
-            /* 9. El minero introduce su voto */
             sem_down(&sems->net_mutex);
-            net->voting_pool[index] = result;
-            printf("VOTANTE: Voto\n");
-            
-            /* 10. Si somos el último en votar dejamos que cuente los votos el ganador */
-            total_voters = sems->total_miners-1;
-            if (count_votes(net) >= total_voters) sem_up(&sems->count_votes);
+            short index = net_get_index(net);
             sem_up(&sems->net_mutex);
 
-            /* 11. Los mineros se bloquean esperando a que se cuenten los votos */
-            /*sem_down(&sems->net_mutex);
-            total_miners = net->total_miners;
-            sem_up(&sems->net_mutex);
-            if (total_miners > 0)*/ sem_down(&sems->update_blocks);
-            printf("VOTANTE: Actualizo mis bloques.\n");
-
-            /* 16. Actualizamos nuestro bloque */
-            short err = 0;
-            sem_down(&sems->block_mutex);
-            printf("VOTANTE: Actualizo - is_valid: %d\n", sbi->is_valid);
-            if (sbi->is_valid == 1) err = update_block(sbi, block);
-            else {
-                /* 15.1 Destruimos el bloque */
-                Block *aux = NULL;
-
-                aux = block;
-                block = aux->prev;
-                printf("Solution block = %ld\n", block->solution);
-                block_destroy(aux);
-            }
-            sem_up(&sems->block_mutex);
-
-            /* 17. Dejamos al proceso ganador actualizar el nuevo target */
-            sem_down(&sems->mutex);
-            printf("VOTANTE: Dejamos actualizar el target\n");
-            sems->finished_miners += 1;
-            sem_down(&sems->net_mutex);
-            total_voters = net->total_miners-1;
-            sem_up(&sems->net_mutex);
-            if (sems->finished_miners >= total_voters) {
-                sem_down(&sems->net_mutex);
-                total_miners = net->total_miners;
-                sem_up(&sems->net_mutex);
-                if (total_miners > 0) sem_post(&sems->update_target);
-                sems->finished_miners = 0;
-            }
-            sem_up(&sems->mutex);
-
-            /* 18. Esperamos a que el nuevo target haya sido actualizado */
-            /*sem_down(&sems->net_mutex);
-            total_miners = net->total_miners;
-            sem_up(&sems->net_mutex);
-            if (total_miners > 0)*/  sem_down(&sems->finish);
-            printf("VOTANTE: salgo\n");
-            
-        } else if (index_ganador != -1) { /* Ganador */
-            int total_miners = 0;
             printf("[%d] Soy ganador.\n", index);
 
             /* 1. El ganador actualiza la solución */
@@ -542,9 +520,8 @@ int main(int argc, char *argv[]) {
             
             sem_down(&sems->net_mutex);
             sem_down(&sems->mutex);
-            printf("GANADOR: Obtengo la solucion\n");
-            sems->quorum = get_quorum(net);
-            quorum = sems->quorum;
+            printf("GANADOR: Obtengo el quorum\n");
+            quorum = get_quorum(net);
             sem_up(&sems->mutex);
             sem_up(&sems->net_mutex);
 
@@ -583,11 +560,8 @@ int main(int argc, char *argv[]) {
             for(int k = 0; k < quorum; k++) sem_up(&sems->vote);
 
             /* 6. El ganador espera a que se vote bloqueandose */
-            sem_down(&sems->net_mutex);
-            total_miners = net->total_miners;
-            sem_up(&sems->net_mutex);
-            printf("AAAAA %d - %d\n", total_miners, quorum);
-            if (total_miners > 1 && quorum > 0) sem_down(&sems->count_votes);
+            printf("AAAAA %d\n", quorum);
+            if (quorum > 0) sem_down(&sems->count_votes);
             printf("GANADOR: Cuento votos\n");
 
             /* 12. Contamos los votos */
@@ -599,9 +573,8 @@ int main(int argc, char *argv[]) {
             /* 13. Establecemos si es valido el bloque */
             short err = 0;
             sem_down(&sems->block_mutex);
-            printf("GANADOR: Modifico\n");
-            total_miners = net->total_miners;
-            if (total_miners > 1 && quorum > 0) {    
+            printf("GANADOR: Modifico bloque\n");
+            if (quorum > 0) {    
                 if (positive_votes/quorum >= 0.5) {
                     printf("[%d] GANADOR Votación exitosa.\n", index);
 
@@ -636,6 +609,7 @@ int main(int argc, char *argv[]) {
                 /* Reseteamos la votación */
                 for (int k = 0; k < MAX_MINERS; k++) net->voting_pool[k] = -1;
             } else {
+                /* En caso de que no haya votantes */
                 sbi->is_valid = 1;
                 net->last_winner = index;
                 sbi->wallets[index] += 1;
@@ -679,10 +653,7 @@ int main(int argc, char *argv[]) {
 
             /* 15. Esperamos a que los mineros hayan actualizado su bloque */
             printf("GANADOR quorum: %d\n", quorum);
-            sem_down(&sems->net_mutex);
-            total_miners = net->total_miners;
-            sem_up(&sems->net_mutex);
-            if (total_miners > 1 && quorum > 0) sem_down(&sems->update_target);
+            if (quorum > 0) sem_down(&sems->update_target);
             printf("GANADOR: actualizo mi bloque y la mem comp\n");
 
             /* 19. Actualizamos el bloque compartido */
@@ -747,6 +718,13 @@ int main(int argc, char *argv[]) {
             }
         }
         sem_up(&sems->net_mutex);
+
+        /* El bloque usado en el manejador se guarda en el bloque de la función */
+        if (block_SIGUSR2 != NULL) {
+            block_copy(block_SIGUSR2, block);
+            block_destroy(block_SIGUSR2);
+            block_SIGUSR2 = NULL;
+        } 
 
         /* No debería ejecutarse nunca */
         if (block->solution == -1)

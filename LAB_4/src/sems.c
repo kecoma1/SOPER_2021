@@ -48,6 +48,7 @@ Sems *sems_ini() {
     || sem_init(&sems->update_blocks, 1, 0) == -1
     || sem_init(&sems->update_target, 1, 0) == -1
     || sem_init(&sems->finish, 1, 0) == -1
+    || sem_init(&sems->winner_mutex, 1, 1) == -1
     ) {
         perror("sem_init");
 
@@ -62,6 +63,7 @@ Sems *sems_ini() {
     sems->total_miners = 1;
     sems->finished_miners = 0;
     sems->quorum = 0;
+    sems->blocked_loosers = 0;
     sem_up(&sems->mutex);
 
     return sems;
@@ -134,6 +136,7 @@ void close_sems(Sems *sems) {
         sem_destroy(&sems->update_blocks);
         sem_destroy(&sems->update_target);
         sem_destroy(&sems->finish);
+        sem_destroy(&sems->winner_mutex);
         shm_unlink(SHM_SEMS);
     }
 }

@@ -30,6 +30,7 @@ typedef struct {
     int finished_miners;
     int total_miners;
     int quorum;
+    int blocked_loosers;
     sem_t net_mutex;
     sem_t block_mutex;
     sem_t mutex;
@@ -38,6 +39,7 @@ typedef struct {
     sem_t update_blocks;
     sem_t update_target;
     sem_t finish;
+    sem_t winner_mutex;
 } Sems;
 
 /**
