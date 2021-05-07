@@ -142,6 +142,7 @@ int main() {
         }
         fclose(pf);
         block_destroy_blockchain(last_block);
+        exit(EXIT_SUCCESS);
     } else { /* Ejecución del padre */
 
         /* Cargamos los semáforos */

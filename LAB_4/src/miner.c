@@ -142,6 +142,7 @@ int main(int argc, char *argv[]) {
     worker_struct *threads_info = NULL;
     Block *last_block = NULL, *block = NULL;
     pid_t pid = 0;
+    struct timespec ts;
 
     if (argc != 3) {
         fprintf(stderr, "Usage: %s <NUMERO TRABAJADORES> <RONDAS>\n", argv[0]);
@@ -288,9 +289,20 @@ int main(int argc, char *argv[]) {
     mqd_t queue = mq_open(MQ_NAME, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR, &attributes);
     if (queue == (mqd_t)-1) {
         perror("mq_open");
+        free(threads_info);
+
+        sem_down(&sems->net_mutex);
+        close_net(net);
+        sem_up(&sems->net_mutex);
+
+        sem_down(&sems->block_mutex);
+        close_shared_block_info(sbi);
+        sem_up(&sems->block_mutex);
 
         mq_close(queue);
         mq_unlink(MQ_NAME);
+
+        close_sems(sems);
 
         exit(EXIT_FAILURE);
     }
@@ -428,7 +440,6 @@ int main(int argc, char *argv[]) {
         /* Terminando la ejecución de los threads */
         short index_ganador = -1;
         for (i = 0; i < num_workers; i++) {
-
             err = pthread_join(threads[i], NULL);
             if (err != 0) {
                 perror("pthread_join");
@@ -489,7 +500,6 @@ int main(int argc, char *argv[]) {
         }
         
         if (solution_found == 0) { /* Ganador */
-
             sem_down(&sems->net_mutex);
             short index = net_get_index(net);
             sem_up(&sems->net_mutex);
@@ -504,29 +514,12 @@ int main(int argc, char *argv[]) {
             
             sem_down(&sems->net_mutex);
             quorum = get_quorum(net);
-            sem_up(&sems->net_mutex);
-
             if (quorum == -1) {
                 fprintf(stderr, "Error en get_quorum.\n");
-                free(threads_info);
-                
-                sem_down(&sems->net_mutex);
-                close_net(net);
-                sem_up(&sems->net_mutex);
-
-                sem_down(&sems->block_mutex);
-                close_shared_block_info(sbi);
-                sem_up(&sems->block_mutex);
-
-                block_destroy_blockchain(block);
-
-                mq_close(queue);
-                mq_unlink(MQ_NAME);
-
-                close_sems(sems);
-
-                exit(EXIT_FAILURE);
+                sig_int_recibida = 1;
             }
+            sem_up(&sems->net_mutex);
+
 
             /* 3. El ganador actualiza el número de mineros activos. +1 incluyendo al ganador */
             sem_down(&sems->net_mutex);
@@ -539,8 +532,15 @@ int main(int argc, char *argv[]) {
             /* 5. Dejamos que los votantes empiezen a votar */
             for(int k = 0; k < quorum; k++) sem_up(&sems->vote);
 
+            /* Obteniendo el tiempo actual para el sem_timedwait */
+            if (clock_gettime(CLOCK_REALTIME, &ts) == -1) {
+                perror("clock_gettime");
+                sig_int_recibida = 1;
+            }
+            ts.tv_sec += 2;
+
             /* 6. El ganador espera a que se vote bloqueandose */
-            if (quorum > 0) sem_down(&sems->count_votes);
+            if (quorum > 0) if (sem_timedwait(&sems->count_votes, &ts) == -1) sig_int_recibida = 1;
 
             /* 12. Contamos los votos */
             int positive_votes = 0;
@@ -550,7 +550,7 @@ int main(int argc, char *argv[]) {
             /* 13. Establecemos si es valido el bloque */
             short err = 0;
             sem_down(&sems->block_mutex);
-            if (quorum > 0) {    
+            if (quorum > 0) {
                 if (positive_votes/quorum >= 0.5) {
 
                     /* 13.0 Actualizamos el id */
@@ -587,49 +587,30 @@ int main(int argc, char *argv[]) {
                 net->last_winner = index;
                 sbi->wallets[index] += 1;
                 sbi->id += 1;
-                err = update_block(sbi, block);
+                if (update_block(sbi, block) == -1) {
+                    fprintf(stderr, "Error en update_block\n");
+                    sig_int_recibida = 1;
+                }
             }
-
             sem_up(&sems->block_mutex);
             sem_up(&sems->net_mutex);
 
             /* 14. Desbloqueamos a los mineros para que actualicen su bloque */
             for (int k = 0; k < quorum; k++) sem_up(&sems->update_blocks);
 
-            if (err == -1) {
-                /* Desbloqueamos a los mineros */
-                for (int k = 0; k < quorum; k++) {
-                    sem_up(&sems->update_blocks);
-                    sem_up(&sems->finish);
-                }
-
-                fprintf(stderr, "Error en update_block.\n");
-                free(threads_info);
-                
-                sem_down(&sems->net_mutex);
-                close_net(net);
-                sem_up(&sems->net_mutex);
-
-                sem_down(&sems->block_mutex);
-                close_shared_block_info(sbi);
-                sem_up(&sems->block_mutex);
-
-                block_destroy_blockchain(block);
-
-                mq_close(queue);
-                mq_unlink(MQ_NAME);
-
-                close_sems(sems);
-
-                exit(EXIT_FAILURE);                
+            /* Obteniendo el tiempo actual para el sem_timedwait */
+            if (clock_gettime(CLOCK_REALTIME, &ts) == -1) {
+                perror("clock_gettime");
+                sig_int_recibida = 1; 
             }
+            ts.tv_sec += 2;
+
 
             /* 15. Esperamos a que los mineros hayan actualizado su bloque */
-            if (quorum > 0) sem_down(&sems->update_target);
+            if (quorum > 0) if (sem_timedwait(&sems->update_target, &ts) == -1) sig_int_recibida = 1;
 
             /* 19. Actualizamos el bloque compartido */
             sem_down(&sems->block_mutex);
-
             sbi->is_valid = 0;
             sbi->target = sbi->solution;
             sbi->solution = -1;
@@ -660,7 +641,6 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "Error en block_copy\n");
                 free(threads_info);
                 
-                sem_down(&sems->net_mutex);
                 close_net(net);
                 sem_up(&sems->net_mutex);
 
@@ -681,7 +661,6 @@ int main(int argc, char *argv[]) {
                 perror("execl");
                 free(threads_info);
                 
-                sem_down(&sems->net_mutex);
                 close_net(net);
                 sem_up(&sems->net_mutex);
 
@@ -704,7 +683,6 @@ int main(int argc, char *argv[]) {
         solution_find = 0;
     }
     /* Liberamos recursos */
-    sem_down(&sems->net_mutex);
     close_net(net);
     sem_up(&sems->net_mutex);
 
@@ -717,7 +695,8 @@ int main(int argc, char *argv[]) {
 
     close_sems(sems);
 
-    block_destroy_blockchain(last_block);
+    //block_destroy_blockchain(last_block);
+    block_destroy_blockchain(block);
     free(threads_info);
     threads_info = NULL;
 

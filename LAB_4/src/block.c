@@ -30,12 +30,12 @@ int block_set(Block *prev, Block *block) {
     if (block == NULL)
         return -1;
     
-    if (prev != NULL) {
+    /*if (prev != NULL) {
         /* Vamos al último bloque de la blockchain */
-        last_block = prev;
+        /*last_block = prev;
         while (last_block->next != NULL)
             last_block = last_block->next;
-    }
+    }*/
 
     /* Inicializamos los datos necesarios */
     if (last_block != NULL) block->id = last_block->id + 1;
@@ -95,9 +95,9 @@ void block_destroy_blockchain(Block *block) {
     
     /* Vamos al último bloque de la blockchain */
     last_block = block;
-    while (last_block->next != NULL)
+    while (last_block->next != NULL && last_block->next != last_block)
         last_block = last_block->next;
-
+    
     /* Borramos la blockchain desde el final */
     do {
         aux = last_block->prev;

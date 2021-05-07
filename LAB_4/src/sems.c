@@ -117,6 +117,7 @@ void close_sems(Sems *sems) {
     if (sems == NULL) return;
 
     sem_down(&sems->mutex);
+
     sems->total_miners -= 1;
     if (sems->total_miners == 0) bool_borrar = 1;
     sem_up(&sems->mutex);
