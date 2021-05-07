@@ -28,5 +28,5 @@ clean:
 	rm -f *.o miner monitor
 
 valgrind:
-	valgrind --leak-check=full --show-leak-kinds=all ./miner 1 5
+	valgrind --leak-check=full --show-leak-kinds=all ./miner 1 4
 

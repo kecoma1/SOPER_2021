@@ -113,7 +113,6 @@ NetData *link_shared_net() {
                 break;
             }
         }
-        nd->total_miners += 1;
         return nd;
     }
 }

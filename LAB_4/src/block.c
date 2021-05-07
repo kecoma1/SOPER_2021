@@ -33,35 +33,39 @@ int block_set(Block *prev, Block *block) {
     if (prev != NULL) {
         /* Vamos al último bloque de la blockchain */
         last_block = prev;
-        while (last_block->next != NULL) {
+        while (last_block->next != NULL)
             last_block = last_block->next;
-        }
     }
 
     /* Inicializamos los datos necesarios */
+    printf("BLOCK_SET : Actualizamos el id.\n");
     if (last_block != NULL) block->id = last_block->id + 1;
     else block->id = 0;
     block->next = NULL;
     block->prev = last_block;
 
     /* Si somos el primer bloque no hay anterior */
+    printf("BLOCK_SET : Actualizamos el TARGET.\n");
     if (last_block != NULL) block->target = last_block->solution;
     else block->target = -1;
 
     block->solution = -1;
-    //block->is_valid = -1;
+    block->is_valid = -1;
 
     /* Inicializando las wallets */
     if (last_block != NULL) {
         /* Somos el último bloque copiamos las wallets */
+    printf("BLOCK_SET : Actualizamos LAS CARTERAS.\n");
         for (int i = 0; i < MAX_MINERS; i++) 
             block->wallets[i] = last_block->wallets[i];
     } else {
         /* Somos el primer bloque, nuevas wallets */
+        printf("BLOCK_SET : INICIALIZAMOS LAS WALLETS.\n");
         for (int i = 0; i < MAX_MINERS; i++) 
             block->wallets[i] = 0;
     }
     
+    printf("BLOCK_SET : Actualizamos el SIGUIENTE.\n");
     if (last_block != NULL) last_block->next = block;
 
     return 0;
