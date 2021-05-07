@@ -88,6 +88,7 @@ int main() {
             perror("read");
             exit(EXIT_FAILURE);
         }
+        alarm(5);
 
         while (1) {
             Block received_block;
@@ -134,13 +135,11 @@ int main() {
                     sig_alrm_recibida = 0;
 
                     /* Escribimos en el archivo */
-                    fprintf(pf, "########## Mostrando la blockchain. ##########\n");
+                    fprintf(pf, "\n########## Mostrando la blockchain. ##########\n");
                     print_blocks_in_file(pf, last_block);
                 }
             }
         }
-
-        print_blocks_in_file(pf, last_block);
         fclose(pf);
         block_destroy_blockchain(last_block);
     } else { /* Ejecución del padre */
@@ -221,14 +220,15 @@ int main() {
                 }
                 msg.block.id = -1; // Para no actualizar la cadena
             }
-
             if (msg.block.id != -1) {
                 /* Comprobamos si el bloque ya esta en el buffer */
                 short is_in = 0;
                 for (int i = 0; i < BUFFER_SIZE; i++) 
                     if (buffer_blocks[i] != NULL) 
-                        if (buffer_blocks[i]->id == msg.block.id)
+                        if (buffer_blocks[i]->id == msg.block.id) {
                             is_in = 1;
+                            break;
+                        }
 
                 if (is_in == 1) {
                     /* Imprimimos el mensaje que toque */
@@ -238,7 +238,9 @@ int main() {
 
                 } else {
                     /* Metemos el bloque en el buffer */
-                    buffer_blocks[index] = &msg.block;
+                    Block b_copy;
+                    block_copy(&msg.block, &b_copy);
+                    buffer_blocks[index] = &b_copy;
                     index = (index+1)%BUFFER_SIZE;
                 }
 
@@ -259,21 +261,23 @@ int main() {
                 }
 
                 /* Escribimos la copia del bloque en la tubería */
-                int nbytes = write(fd[1], &b_copy, sizeof(Block));
-                if (nbytes == -1) {
-                    kill(pid_hijo, SIGINT);
-                    waitpid(pid_hijo, NULL, 0);
+                if (is_in == 0) { // Si no está lo enviamos
+                    int nbytes = write(fd[1], &b_copy, sizeof(Block));
+                    if (nbytes == -1) {
+                        kill(pid_hijo, SIGINT);
+                        waitpid(pid_hijo, NULL, 0);
 
-                    perror("write");
-                    mq_close(queue);
+                        perror("write");
+                        mq_close(queue);
 
-                    sem_down(&sems->net_mutex);
-                    close_net(net);
-                    sem_up(&sems->net_mutex);
+                        sem_down(&sems->net_mutex);
+                        close_net(net);
+                        sem_up(&sems->net_mutex);
 
-                    close_sems(sems);
+                        close_sems(sems);
 
-                    exit(EXIT_FAILURE);
+                        exit(EXIT_FAILURE);
+                    }
                 }
             }
         }
