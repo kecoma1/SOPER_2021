@@ -69,6 +69,8 @@ void manejador_SIGUSR2(int sig) {
     short index = net_get_index(net);
     sem_up(&sems->net_mutex);
 
+    printf("[%d] Soy perdemos\n", index);
+
     /* Nos bloqueamos hasta que tengamos que votar */ 
     sem_down(&sems->vote);
 
@@ -484,10 +486,7 @@ int main(int argc, char *argv[]) {
         sig_alrm_recibida = 0;
 
         /* Abandonamos el bucle principal si se ha recibido SIGINT */
-        sigpending(&waiting_mask);
         if (sig_int_recibida == 1) {
-            
-
             /* Para no volver a recibir sigusr2 */
             sem_down(&sems->net_mutex);
             short index = net_get_index(net);
@@ -499,10 +498,13 @@ int main(int argc, char *argv[]) {
             break;
         }
         
-        if (solution_found == 0) { /* Ganador */
+        /* G A N A D O R */
+        if (solution_found == 0) { 
             sem_down(&sems->net_mutex);
             short index = net_get_index(net);
             sem_up(&sems->net_mutex);
+
+            printf("[%d] Soy ganador\n", index);
 
             /* 1. El ganador actualiza la solución */
             sem_down(&sems->block_mutex);
@@ -542,12 +544,12 @@ int main(int argc, char *argv[]) {
             /* 6. El ganador espera a que se vote bloqueandose */
             if (quorum > 0) if (sem_timedwait(&sems->count_votes, &ts) == -1) sig_int_recibida = 1;
 
-            /* 12. Contamos los votos */
+            /* 11. Contamos los votos */
             int positive_votes = 0;
             sem_down(&sems->net_mutex);
             for (int k = 0; k < MAX_MINERS; k++) if (net->voting_pool[k] == 1) positive_votes++;
 
-            /* 13. Establecemos si es valido el bloque */
+            /* 12. Establecemos si es valido el bloque */
             short err = 0;
             sem_down(&sems->block_mutex);
             if (quorum > 0) {
@@ -611,8 +613,8 @@ int main(int argc, char *argv[]) {
 
             /* 19. Actualizamos el bloque compartido */
             sem_down(&sems->block_mutex);
+            if (sbi->is_valid == 1) sbi->target = sbi->solution;
             sbi->is_valid = 0;
-            sbi->target = sbi->solution;
             sbi->solution = -1;
             sem_up(&sems->block_mutex);
 
