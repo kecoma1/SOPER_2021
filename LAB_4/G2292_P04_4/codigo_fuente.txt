@@ -1,0 +1,30 @@
+block.c - Fichero donde se codifican los bloques y su comportamiento, también se codifica el
+	uso de memoria compartida para el bloque compartido.	
+block.h - Fichero donde se definen las cabeceras de las funciones para usar bloques y la 		estructura de los bloques y la del bloque compartido.
+
+miner.c - Fichero donde se codifica el comportamiento de los mineros.
+miner.h - Fichero donde se importan las librerias necesarias para el minero.
+
+monitor.c - Fichero donde se implementa el comportamiento del monitor.
+monitor.h - Archivo donde se importan las librerias necesarias y se declara la estructura usada
+	por la cola de mensajes.
+	
+net.c - Fichero donde se implementa el uso de la red de mineros.
+net.h - Fichero donde se definen las cabeceras de las funciones para usar la red y se declara
+	la estructura usada para la red.
+
+sems.c - Fichero donde se implementa el uso de semáforos.
+sems.h - Fichero donde se definen las cabeceras de las funciones para usar los semáforos y 
+	se delcara la estructura con los semáforos sin nombre.
+
+trabajador.c - Fichero donde se codifica el comportamiento de los trabajadores de un minero.
+trabajador.h - Fichero donde se definen las cabeceras de las funciones del trabajador y la 
+	estructura que este usa.
+
+makefile - Fichero que compila y crea los ejecutables necesarios.
+    Comandos:
+        make - Compila el código.
+        make clean - Limpia el directorio eliminando ejecutables y .o.
+        make valgrind - Compila el código y ejecuta el minero con 1 thread y 4 rondas. 
+        
+memoria.pdf - Memoria que contiene la explicación de nuestra implementación.
