@@ -69,7 +69,7 @@ void manejador_SIGUSR2(int sig) {
     short index = net_get_index(net);
     sem_up(&sems->net_mutex);
 
-    printf("[%d] Soy perdemos\n", index);
+    printf("[%d] Soy perdedor\n", index);
 
     /* Nos bloqueamos hasta que tengamos que votar */ 
     sem_down(&sems->vote);
@@ -636,7 +636,7 @@ int main(int argc, char *argv[]) {
 
         /* Enviamos el bloque al monitor si existe */
         sem_down(&sems->net_mutex);
-        if (net->monitor_pid != -1) {
+        if (net->monitor_pid != -1 && block != NULL) {
             Mensaje msg;
             
             if (block_copy(block, &msg.block) == -1) {
